@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0a0e1a" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f0f4f8">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌌</text></svg>">
+  <title>Aurora Planner</title>
+  <link rel="stylesheet" href="css/theme.css">
+  <link rel="stylesheet" href="css/theme-accent.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/animations.css">
+  <link rel="stylesheet" href="css/fixes.css">
+  <link rel="stylesheet" href="css/aurora-ui.css">
+  <link rel="stylesheet" href="css/dashboard-fix.css">
+  <link rel="stylesheet" href="css/analytics-fix.css">
+  <link rel="stylesheet" href="css/mobile.css">
+  <link rel="stylesheet" href="css/final-overrides.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<!-- AUTH LAYER -->
+<div id="authLayer" class="auth-layer" style="display:block">
+  <canvas id="aurora"></canvas>
+  <div class="ui-layer">
+    <div class="hero" id="hero">
+      <h1>Aurora</h1>
+      <div class="entry-buttons">
+        <button id="loginEntry">Login</button>
+        <button id="registerEntry">Sign Up</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="authModal">
+    <div class="beam-box">
+      <p class="auth-subtitle" id="authTitle">WELCOME BACK</p>
+
+      <!-- Main panel -->
+      <div id="authPanelMain" style="display:flex;flex-direction:column;gap:12px;width:100%">
+        <input type="email"    id="authEmail"    placeholder="Email" autocomplete="email">
+        <input type="password" id="authPassword" placeholder="Password" autocomplete="current-password">
+        <p id="authError" class="auth-error-msg"></p>
+        <button id="primaryAuthBtn">Continue</button>
+        <button id="googleBtn">Continue with Google</button>
+        <div id="forgotLinkWrap" style="text-align:center;margin-top:2px">
+          <a href="#" id="forgotLink" class="auth-forgot-link">Forgot password?</a>
+        </div>
+        <button id="dismissBtn" class="dismiss">Back</button>
+      </div>
+
+      <!-- Forgot password panel -->
+      <div id="authPanelForgot" style="display:none;flex-direction:column;gap:12px;width:100%">
+        <p class="auth-reset-desc">Enter your email and we'll send a reset link.</p>
+        <input type="email" id="resetEmailInput" placeholder="Your email address" autocomplete="email">
+        <p id="resetMsg" class="auth-error-msg"></p>
+        <button id="sendResetBtn">Send Reset Link</button>
+        <button id="backFromForgot" class="dismiss">← Back to Login</button>
+      </div>
+
+      <!-- Reset sent confirmation -->
+      <div id="authPanelReset" style="display:none;flex-direction:column;gap:16px;width:100%;align-items:center">
+        <div class="auth-reset-icon">✉️</div>
+        <p class="auth-reset-desc" style="text-align:center">Check your inbox! A reset link was sent. It may take a minute.</p>
+        <button id="backFromReset" class="dismiss" style="width:100%">Back to Login</button>
+      </div>
+
+      <!-- Email verification panel (shown after register or unverified login) -->
+      <div id="authPanelVerify" style="display:none;flex-direction:column;gap:16px;width:100%;align-items:center">
+        <div class="auth-verify-icon">📧</div>
+        <div style="text-align:center">
+          <p class="auth-reset-desc" style="margin-bottom:6px">We sent a verification link to:</p>
+          <p id="verifyEmailAddr" style="font-weight:700;color:var(--accent,#00c87a);font-size:14px;letter-spacing:0.3px;word-break:break-all"></p>
+        </div>
+        <p class="auth-reset-desc" style="text-align:center;opacity:0.7;font-size:13px;line-height:1.6">Click the link in your email, then come back and press <strong style="color:rgba(255,255,255,0.9)">I've Verified</strong> to enter.</p>
+        <p id="verifyMsg" class="auth-error-msg" style="text-align:center;min-height:18px"></p>
+        <button id="checkVerifyBtn" style="width:100%">✓ I've Verified My Email</button>
+        <button id="resendVerifyBtn" class="dismiss" style="width:100%">↺ Resend verification email</button>
+        <button id="backFromVerify" class="dismiss" style="width:100%;opacity:0.5;margin-top:4px">← Back to Login</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- APP LAYER -->
+<div id="appContainer" class="app-container" style="display:none">
+  <aside class="sidebar">
+    <div class="logo">Aurora</div>
+    <nav>
+      <button data-route="home">🏠 Home</button>
+      <button data-route="dashboard">📊 Dashboard</button>
+      <button data-route="tasks">✓ Tasks</button>
+      <button data-route="calendar">📅 Calendar</button>
+      <button data-route="analytics">📈 Analytics</button>
+      <button data-route="brainstorm">💡 Brainstorm</button>
+      <button data-route="whisper">🌊 Whisper</button>
+      <button data-route="focus">⏱ Focus</button>
+      <button data-route="rooms">👥 Focus Rooms</button>
+      <button data-route="swot">⚡ SWOT</button>
+      <button data-route="report">🤖 AI Report</button>
+      <button data-route="friends">👥 Friends</button>
+    </nav>
+    <!-- Theme toggle button -->
+    <button class="theme-toggle-btn" id="themeToggleBtn" title="Change theme">🎨 Theme</button>
+
+    <!-- Theme panel — hidden until toggle clicked -->
+    <div class="theme-panel" id="themePanel" style="display:none">
+      <div class="theme-panel-label">Presets</div>
+      <div class="combo-grid">
+        <button class="combo-btn" data-combo="aurora"   title="Aurora Dark">🌌 Aurora</button>
+        <button class="combo-btn" data-combo="midnight" title="Midnight Purple">🔮 Midnight</button>
+        <button class="combo-btn" data-combo="ocean"    title="Deep Ocean">🌊 Ocean</button>
+        <button class="combo-btn" data-combo="ember"    title="Ember Dark">🔥 Ember</button>
+        <button class="combo-btn" data-combo="sakura"   title="Sakura Light">🌸 Sakura</button>
+        <button class="combo-btn" data-combo="slate"    title="Slate Light">🪨 Slate</button>
+        <button class="combo-btn" data-combo="sand"     title="Sand Light">🏜 Sand</button>
+      </div>
+      <div class="theme-panel-label" style="margin-top:10px">Accent colour</div>
+      <div class="aap-swatches" style="padding:4px 0">
+        <div class="aap-swatch aap-green  active" data-accent="green"  title="Aurora Green"></div>
+        <div class="aap-swatch aap-blue"          data-accent="blue"   title="Blue"></div>
+        <div class="aap-swatch aap-purple"        data-accent="purple" title="Purple"></div>
+        <div class="aap-swatch aap-amber"         data-accent="amber"  title="Amber"></div>
+        <div class="aap-swatch aap-rose"          data-accent="rose"   title="Rose"></div>
+      </div>
+    </div>
+    <button id="logoutBtn" class="logout-btn">⏻ Sign Out</button>
+  </aside>
+  <div class="main-area">
+    <header class="topbar">
+      <h1 id="pageTitle">Home</h1>
+      <div id="themeToggle" class="aurora-toggle">
+        <div class="toggle-circle"><span class="toggle-icon">☀️</span></div>
+      </div>
+    </header>
+    <main id="appContent"></main>
+  </div>
+</div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
