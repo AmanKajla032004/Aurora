@@ -123,6 +123,9 @@ export async function initAnalytics() {
       <div class="am-val">${val}</div>
     </div>`).join("");
 
+  // Colors — declared FIRST so everything below can use them
+  const isDark = document.body.classList.contains("dark");
+
   // ---- HEATMAP ----
   const heatmap = document.getElementById("heatmapGrid");
   if (heatmap) {
@@ -138,17 +141,14 @@ export async function initAnalytics() {
         const d = new Date(now); d.setDate(now.getDate() - w * 7 - (now.getDay() - day));
         const key = localDate(d); const cnt = completionMap[key] || 0;
         const intensity = cnt / max;
-        const emptyBg = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.06)";
-        const bg = cnt === 0 ? emptyBg : `rgba(0,200,122,${0.15 + intensity * 0.85})`;
+        const emptyBg = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.07)";
+        const bg = cnt === 0 ? emptyBg : `rgba(0,200,122,${0.18 + intensity * 0.82})`;
         cells.push(`<div class="heat-cell" style="background:${bg}" title="${key}: ${cnt} completed"></div>`);
       }
     }
     heatmap.innerHTML = cells.join("");
-    heatmap.style.gridTemplateColumns = "repeat(84,1fr)";
+    heatmap.style.gridTemplateColumns = "repeat(84, 1fr)";
   }
-
-  // Colors
-  const isDark = document.body.classList.contains("dark");
   const textCol = isDark ? "rgba(203,213,225,0.8)" : "rgba(30,41,59,0.75)";
   const gridCol = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)";
   const borderCol = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
@@ -297,7 +297,8 @@ function localDate(d) {
 }
 
 function calcStreak(tasks) {
-  const days = new Set(tasks.filter(t=>t.type==="daily"&&t.completed&&t.completedAt).map(t=>localDate(new Date(t.completedAt.seconds?t.completedAt.seconds*1000:t.completedAt))));
+  // Any day with ANY completed task counts toward streak
+  const days = new Set(tasks.filter(t=>t.completed&&t.completedAt).map(t=>localDate(new Date(t.completedAt.seconds?t.completedAt.seconds*1000:t.completedAt))));
   const today = new Date(); let streak = 0;
   for (let i = 0; i <= 365; i++) { const d = new Date(today); d.setDate(today.getDate()-i); if (days.has(localDate(d))) streak++; else if (i>0) break; }
   return streak;

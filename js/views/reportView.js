@@ -129,6 +129,36 @@ async function generateAI() {
   const btn = document.getElementById("reportAiBtn");
   const container = document.getElementById("reportContent");
   if (!container) return;
+
+  // Gate: prompt user to fill wellbeing first (for richer AI analysis)
+  // Check if today's wellbeing entry exists
+  try {
+    const { auth } = await import("../firebase/firebaseConfig.js");
+    const { db }   = await import("../firebase/firebaseConfig.js");
+    const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+    if (auth.currentUser) {
+      const uid = auth.currentUser.uid;
+      const today = new Date();
+      const key = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
+      const snap = await getDoc(doc(db, "wellbeing", uid, "entries", key));
+      if (!snap.exists()) {
+        // Show gentle nudge — don't block, just suggest
+        const nudge = document.getElementById("wbNudge");
+        if (!nudge) {
+          const n = document.createElement("div");
+          n.id = "wbNudge";
+          n.style.cssText = "background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.3);border-radius:12px;padding:12px 16px;margin-bottom:12px;font-size:13px;color:#f97316;display:flex;gap:10px;align-items:center";
+          n.innerHTML = `<span style="font-size:18px">💙</span><span>Fill in today's <strong><a href="#" id="goWellbeing" style="color:#f97316">Wellbeing check-in</a></strong> first for a richer, more personalized AI report. <button id="skipWbGate" style="background:none;border:none;color:#f97316;cursor:pointer;text-decoration:underline;font-size:13px;padding:0">Skip and continue</button></span>`;
+          container.insertBefore(n, container.firstChild);
+          document.getElementById("goWellbeing")?.addEventListener("click", e => { e.preventDefault(); document.querySelector('[data-route="wellbeing"]')?.click(); });
+          document.getElementById("skipWbGate")?.addEventListener("click", () => { n.remove(); generateAI(); });
+          if (btn) { btn.disabled = false; btn.textContent = "✦ Ask AI"; }
+          return;
+        }
+      }
+    }
+  } catch(e) { /* if wellbeing check fails, just proceed */ }
+
   if (btn) { btn.disabled = true; btn.textContent = "✦ Thinking…"; }
 
   // Remove any existing AI card

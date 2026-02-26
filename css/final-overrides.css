@@ -2283,3 +2283,126 @@ body.dark .priority-pill {
   .wb-row-2col { grid-template-columns: 1fr; }
   .wb-emoji-btn { width: 36px; height: 36px; font-size: 18px; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   AUTH — fix text visibility on all backgrounds
+═══════════════════════════════════════════════════════════════ */
+.beam-box {
+  background: rgba(8, 12, 28, 0.92) !important;
+}
+.auth-subtitle {
+  color: #00f5a0 !important;
+}
+.beam-box input {
+  color: #e2e8f0 !important;
+  background: rgba(255,255,255,0.06) !important;
+}
+.beam-box input::placeholder {
+  color: rgba(148,163,184,0.6) !important;
+}
+.auth-reset-desc {
+  color: rgba(226,232,240,0.75) !important;
+}
+.auth-forgot-link, .auth-forgot-link:visited {
+  color: rgba(0,245,160,0.7) !important;
+}
+.auth-forgot-link:hover { color: #00f5a0 !important; }
+.dismiss { color: rgba(148,163,184,0.6) !important; }
+#verifyEmail {
+  color: #00f5a0 !important;
+  font-weight: 600;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   WELLBEING — stress buttons with color, sliders
+═══════════════════════════════════════════════════════════════ */
+.wb-stress-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.wb-stress-btn {
+  flex: 1;
+  min-width: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 8px;
+  border-radius: 12px;
+  border: 2px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.18s;
+}
+.wb-stress-btn:hover {
+  border-color: var(--stress-color, var(--accent));
+  background: color-mix(in srgb, var(--stress-color, var(--accent)) 15%, transparent);
+}
+.wb-stress-btn.active {
+  border-color: var(--stress-color, var(--accent)) !important;
+  background: color-mix(in srgb, var(--stress-color, var(--accent)) 20%, transparent) !important;
+}
+.wb-stress-num {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--stress-color, var(--text));
+  line-height: 1;
+}
+.wb-stress-lbl {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--muted);
+  text-align: center;
+}
+.wb-stress-btn.active .wb-stress-lbl {
+  color: var(--stress-color, var(--accent));
+}
+
+/* Sliders */
+.wb-slider-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.wb-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255,255,255,0.1);
+  outline: none;
+  cursor: pointer;
+}
+.wb-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,200,122,0.4);
+  transition: transform 0.15s;
+}
+.wb-slider::-webkit-slider-thumb:hover { transform: scale(1.2); }
+.wb-slider-val {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  min-width: 56px;
+  text-align: center;
+}
+.wb-slider-hints {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--muted);
+  padding: 2px 0;
+  opacity: 0.6;
+}
+
+@media (max-width: 480px) {
+  .wb-stress-btn { min-width: 50px; padding: 8px 4px; }
+  .wb-stress-lbl { font-size: 9px; }
+}

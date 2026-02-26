@@ -71,32 +71,40 @@ export function renderWellbeing() {
 
       <!-- Stress -->
       <div class="wb-field">
-        <div class="wb-field-label">Stress</div>
+        <div class="wb-field-label">😰 Stress Level <span style="opacity:0.45;font-size:11px;font-weight:400">(1 = calm, 5 = overwhelmed)</span></div>
         <div class="wb-stress-row">
-          ${[1,2,3,4,5].map(v =>
-            `<button class="wb-stress-btn" data-val="${v}">${v}</button>`
+          ${[
+            {v:1, label:"Calm",         color:"#22c55e"},
+            {v:2, label:"Mild",          color:"#86efac"},
+            {v:3, label:"Moderate",      color:"#f59e0b"},
+            {v:4, label:"High",          color:"#f97316"},
+            {v:5, label:"Overwhelmed",   color:"#ef4444"}
+          ].map(s =>
+            `<button class="wb-stress-btn" data-val="${s.v}" data-color="${s.color}" style="--stress-color:${s.color}">
+               <span class="wb-stress-num">${s.v}</span>
+               <span class="wb-stress-lbl">${s.label}</span>
+             </button>`
           ).join("")}
-          <span class="wb-stress-labels"><span>Calm</span><span>Overwhelmed</span></span>
         </div>
       </div>
 
       <!-- Sleep & Water -->
       <div class="wb-row-2col">
         <div class="wb-field">
-          <div class="wb-field-label">💤 Sleep (hours)</div>
-          <div class="wb-stepper">
-            <button class="wb-step-btn" data-target="sleep" data-delta="-0.5">−</button>
-            <span class="wb-step-val" id="sleepVal">7</span>
-            <button class="wb-step-btn" data-target="sleep" data-delta="0.5">+</button>
+          <div class="wb-field-label">💤 Sleep</div>
+          <div class="wb-slider-wrap">
+            <input type="range" class="wb-slider" id="sleepSlider" min="0" max="12" step="0.5" value="7">
+            <div class="wb-slider-val"><span id="sleepVal">7</span>h</div>
           </div>
+          <div class="wb-slider-hints"><span>0h</span><span>6h</span><span>12h</span></div>
         </div>
         <div class="wb-field">
-          <div class="wb-field-label">💧 Water (glasses)</div>
-          <div class="wb-stepper">
-            <button class="wb-step-btn" data-target="water" data-delta="-1">−</button>
-            <span class="wb-step-val" id="waterVal">6</span>
-            <button class="wb-step-btn" data-target="water" data-delta="1">+</button>
+          <div class="wb-field-label">💧 Water</div>
+          <div class="wb-slider-wrap">
+            <input type="range" class="wb-slider" id="waterSlider" min="0" max="15" step="1" value="6">
+            <div class="wb-slider-val"><span id="waterVal">6</span> glasses</div>
           </div>
+          <div class="wb-slider-hints"><span>0</span><span>8</span><span>15</span></div>
         </div>
       </div>
 
@@ -174,18 +182,25 @@ export async function initWellbeing() {
     };
   });
 
-  // Steppers
-  document.querySelectorAll(".wb-step-btn").forEach(btn => {
-    btn.onclick = () => {
-      const target = btn.dataset.target;
-      const delta  = parseFloat(btn.dataset.delta);
-      const min    = target === "sleep" ? 0 : 0;
-      const max    = target === "sleep" ? 24 : 20;
-      wbState[target] = Math.max(min, Math.min(max, (wbState[target] || 0) + delta));
-      const el = document.getElementById(target + "Val");
-      if (el) el.textContent = wbState[target];
+  // Sliders for sleep and water
+  const sleepSlider = document.getElementById("sleepSlider");
+  const waterSlider = document.getElementById("waterSlider");
+  if (sleepSlider) {
+    sleepSlider.value = wbState.sleep || 7;
+    sleepSlider.oninput = () => {
+      wbState.sleep = parseFloat(sleepSlider.value);
+      const el = document.getElementById("sleepVal");
+      if (el) el.textContent = wbState.sleep;
     };
-  });
+  }
+  if (waterSlider) {
+    waterSlider.value = wbState.water || 6;
+    waterSlider.oninput = () => {
+      wbState.water = parseInt(waterSlider.value);
+      const el = document.getElementById("waterVal");
+      if (el) el.textContent = wbState.water;
+    };
+  }
 
   // Save
   document.getElementById("wbSaveBtn").onclick = async () => {
@@ -233,15 +248,19 @@ function applyState(entry) {
     if (btn) btn.classList.add("active");
   }
 
-  // Steppers
+  // Sliders
   if (entry.sleep != null) {
     wbState.sleep = entry.sleep;
+    const sl = document.getElementById("sleepSlider");
     const el = document.getElementById("sleepVal");
+    if (sl) sl.value = entry.sleep;
     if (el) el.textContent = entry.sleep;
   }
   if (entry.water != null) {
     wbState.water = entry.water;
+    const sl = document.getElementById("waterSlider");
     const el = document.getElementById("waterVal");
+    if (sl) sl.value = entry.water;
     if (el) el.textContent = entry.water;
   }
 
