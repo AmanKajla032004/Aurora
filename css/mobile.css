@@ -11,22 +11,19 @@
 /* ── HAMBURGER BUTTON ─────────────────────────────────────────── */
 .mobile-menu-btn {
   display: none;
-  position: fixed;
-  top: 14px;
-  left: 14px;
-  z-index: 1200;
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  background: var(--surface);
+  background: transparent;
   border: 1px solid var(--border);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.25);
   cursor: pointer;
   align-items: center;
   justify-content: center;
   font-size: 18px;
   color: var(--text);
   transition: background 0.2s, transform 0.15s;
+  flex-shrink: 0;
+  z-index: 10;
 }
 .mobile-menu-btn:active { transform: scale(0.93); }
 
@@ -48,8 +45,7 @@
 ================================================================ */
 @media (max-width: 768px) {
 
-  /* Show hamburger */
-  .mobile-menu-btn { display: flex; }
+  /* Show hamburger — handled in topbar block above */
   .sidebar-overlay { display: block; pointer-events: none; }
   .sidebar-overlay.active { pointer-events: all; }
 
@@ -76,8 +72,16 @@
   /* ── TOPBAR: hamburger left | title center | toggle right ──── */
   .topbar {
     position: relative !important;
-    padding: 14px 16px !important;
+    padding: 10px 16px !important;
     min-height: 56px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
+  }
+  .mobile-menu-btn {
+    display: flex !important;
+    position: static !important;
   }
   #pageTitle {
     position: absolute !important;
@@ -145,8 +149,12 @@
   /* ── TOPBAR ──────────────────────────────────────────────────── */
   .topbar {
     position: relative !important;
-    padding: 12px 16px !important;
+    padding: 10px 14px !important;
     min-height: 52px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
   }
   #pageTitle {
     position: absolute !important;
