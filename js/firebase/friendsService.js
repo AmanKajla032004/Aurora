@@ -206,25 +206,42 @@ export async function markMessagesRead(fromUid) {
   await batch.commit();
 }
 
-// ── Profile Photo (Firebase Storage) ─────────────────────────
+// ── Profile Photo ─────────────────────────────────────────────
+// Tries Firebase Storage first; if unavailable falls back to base64 in Firestore
 export async function uploadProfilePhoto(file) {
   const user = auth.currentUser;
   if (!user) throw new Error("Not logged in");
 
-  // Import Firebase Storage
-  const { getStorage, ref, uploadBytes, getDownloadURL }
-    = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js");
+  // Compress first (needed for both paths)
+  const compressed = await compressImage(file, 300, 300, 0.82);
 
-  const { app } = await import("./firebaseConfig.js");
-  const storage  = getStorage(app);
-  const filePath = `profilePhotos/${user.uid}/avatar.jpg`;
-  const storageRef = ref(storage, filePath);
+  // Try Firebase Storage
+  try {
+    const { getStorage, ref, uploadBytes, getDownloadURL }
+      = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js");
+    const { app } = await import("./firebaseConfig.js");
+    const storage    = getStorage(app);
+    const filePath   = `profilePhotos/${user.uid}/avatar.jpg`;
+    const storageRef = ref(storage, filePath);
+    await uploadBytes(storageRef, compressed, { contentType: "image/jpeg" });
+    const url = await getDownloadURL(storageRef);
+    return url;
+  } catch(storageErr) {
+    console.warn("Storage unavailable, using base64 fallback:", storageErr.message);
 
-  // Compress image before upload using canvas
-  const compressed = await compressImage(file, 300, 300, 0.8);
-  await uploadBytes(storageRef, compressed, { contentType: "image/jpeg" });
-  const url = await getDownloadURL(storageRef);
-  return url;
+    // Fallback: convert compressed blob to base64 data URL and store in Firestore
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload  = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(compressed);
+    });
+
+    // Store directly in Firestore user doc (works without Storage)
+    const { setDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+    await setDoc(doc(db, "users", user.uid), { photoURL: base64 }, { merge: true });
+    return base64;
+  }
 }
 
 export async function getPhotoURL(uid) {
