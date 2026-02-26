@@ -227,8 +227,8 @@ function renderTaskItem(task, isCompleted=false) {
     <div class="task-item ${isCompleted?"task-completed":""}" data-id="${task.id}" draggable="${!isCompleted}">
       <div class="drag-handle">⠿</div>
       <div class="task-priority-stripe" style="background:${color}"></div>
-      <div class="task-left">
-        <div style="flex:1;min-width:0">
+      <div class="task-body">
+        <div class="task-content">
           <div class="task-title ${isCompleted?"strikethrough":""}">${task.title}</div>
           ${task.description?`<div class="task-desc">${task.description}</div>`:""}
           <div class="task-meta">
@@ -248,10 +248,13 @@ function renderTaskItem(task, isCompleted=false) {
                 <span>${s.title}</span>
               </label>`).join("")}</div>`:""}
         </div>
-      </div>
-      <div class="task-actions">
-        ${!isCompleted?`<button data-complete="${task.id}" class="complete-btn">✓</button><button data-edit="${task.id}" class="edit-btn">✎</button>`:""}
-        <button data-delete="${task.id}" class="delete-btn">✕</button>
+        <div class="task-actions">
+          ${!isCompleted?`
+            <button data-complete="${task.id}" class="task-done-btn" title="Complete">✓ Done</button>
+            <button data-edit="${task.id}" class="task-edit-btn" title="Edit">✎ Edit</button>
+          `:""}
+          <button data-delete="${task.id}" class="task-delete-btn" title="Delete">✕</button>
+        </div>
       </div>
     </div>`;
 }
@@ -470,55 +473,37 @@ function setupEvents() {
   document.getElementById("aiBreakdownBtn").onclick = async () => {
     const titleEl  = document.getElementById("taskTitle");
     const descEl   = document.getElementById("taskDesc");
-    const typeEl   = document.querySelector(".freq-pill.active");
     const resultEl = document.getElementById("aiBreakdownResult");
     const btn      = document.getElementById("aiBreakdownBtn");
 
     const title = titleEl?.value.trim();
-    const desc  = descEl?.value.trim();
-    const type  = typeEl?.dataset?.freq || "";
     if (!title) { titleEl?.focus(); showToast("Enter a task title first","error"); return; }
 
     btn.disabled = true;
     btn.textContent = "✦ Thinking…";
     resultEl.style.display = "block";
-    resultEl.style.color = "var(--muted)";
-    resultEl.textContent = "Analysing your task…";
+    resultEl.textContent = "Breaking down your task…";
 
     try {
-      const ctxLines = [];
-      if (desc)  ctxLines.push(`DESCRIPTION: "${desc}"`);
-      if (type)  ctxLines.push(`TYPE: ${type} task`);
-      const ctx = ctxLines.length ? "\n" + ctxLines.join("\n") : "";
-
-      const prompt = `You are a productivity expert helping someone break a task into clear steps.
-
-TASK: "${title}"${ctx}
-
-Create 3-7 subtasks that are:
-- Ordered logically (what to do first to last)
-- Specific and doable in one sitting
-- Starting with action verbs (Research, Write, Set up, Review, Test, Design, etc.)
-- Practical — what you would actually DO
-
-Return ONLY a raw JSON array of strings. No markdown, no explanation.
-Example: ["Research competitors", "Sketch layout ideas", "Write copy", "Get feedback", "Publish"]`;
-
-      const subtasks = await askGeminiJSON(prompt, 400);
+      const prompt = `Break down this task into 3-6 clear actionable subtasks.
+Task: ${title}${descEl?.value.trim() ? "\nDescription: " + descEl.value.trim() : ""}
+Return a JSON array of strings only. Example: ["Research options", "Write draft", "Review"]`;
+      const subtasks = await askGeminiJSON(prompt, 300);
 
       if (Array.isArray(subtasks) && subtasks.length) {
+        // Add to pending subtasks
         subtasks.forEach(s => {
-          const text = (typeof s === "string" ? s : (s.title || s.step || "")).trim();
+          const text = typeof s === "string" ? s.trim() : (s.title || s).trim();
           if (text && !pendingSubtasks.find(p => p.title === text)) {
             pendingSubtasks.push({ title: text, done: false });
           }
         });
         renderSubtaskList();
-        resultEl.textContent = `✓ Added ${subtasks.length} subtasks`;
+        resultEl.textContent = `✓ Added ${subtasks.length} subtasks from AI`;
         resultEl.style.color = "#00c87a";
-        setTimeout(() => { resultEl.style.display = "none"; }, 3000);
+        setTimeout(() => { resultEl.style.display = "none"; }, 2500);
       } else {
-        resultEl.textContent = "Try a more specific task title.";
+        resultEl.textContent = "Couldn't parse subtasks — try a clearer title.";
         resultEl.style.color = "#f59e0b";
       }
     } catch(err) {
@@ -559,8 +544,9 @@ Example: ["Research competitors", "Sketch layout ideas", "Write copy", "Get feed
 
   document.addEventListener("click", async e => {
     // Delete task
-    if (e.target.dataset.delete) {
-      const id = e.target.dataset.delete;
+    const delBtn = e.target.closest("[data-delete]");
+    if (delBtn) {
+      const id = delBtn.dataset.delete;
       // Optimistic: remove from DOM and local array immediately
       const el = document.querySelector(`.task-item[data-id="${id}"]`);
       if (el) { el.style.opacity="0"; el.style.transform="scale(0.96)"; el.style.transition="all 0.18s"; setTimeout(()=>el.remove(),180); }
@@ -571,8 +557,9 @@ Example: ["Research competitors", "Sketch layout ideas", "Write copy", "Get feed
     }
 
     // Complete task — optimistic in-place update, NO full re-render
-    if (e.target.dataset.complete) {
-      const id = e.target.dataset.complete;
+    const doneBtn = e.target.closest("[data-complete]");
+    if (doneBtn) {
+      const id = doneBtn.dataset.complete;
       const task = allTasks.find(t => t.id === id);
       if (!task) return;
 
@@ -601,8 +588,9 @@ Example: ["Research competitors", "Sketch layout ideas", "Write copy", "Get feed
       return;
     }
 
-    if (e.target.dataset.edit) {
-      const t = allTasks.find(t => t.id === e.target.dataset.edit);
+    const editBtn = e.target.closest("[data-edit]");
+    if (editBtn) {
+      const t = allTasks.find(t => t.id === editBtn.dataset.edit);
       if (t) openModal(t);
     }
   });

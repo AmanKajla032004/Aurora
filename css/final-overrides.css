@@ -221,7 +221,7 @@ body.dark #appContent .focus-task-title {
 
 
 /* ─── 5. FOCUS ROOMS ─────────────────────────────────────────── */
-.fr-room-center { position:relative !important; z-index:10 !important; display:flex !important; flex-direction:column !important; align-items:center !important; justify-content:center !important; gap:22px !important; flex:1 !important; padding:20px 170px 60px 20px !important; }
+.fr-room-center { position:relative !important; z-index:10 !important; display:flex !important; flex-direction:column !important; align-items:center !important; justify-content:center !important; gap:22px !important; flex:1 !important; padding:20px 200px 60px 20px !important; text-align:center !important; }
 .fr-timer { font-size:80px !important; font-weight:100 !important; line-height:1 !important; letter-spacing:-5px !important; color:white !important; text-shadow:0 0 50px rgba(0,245,160,0.3) !important; font-variant-numeric:tabular-nums !important; }
 .fr-timer-sub { font-size:11px !important; letter-spacing:3px !important; text-transform:uppercase !important; color:rgba(255,255,255,0.28) !important; margin-top:10px !important; }
 .fr-aura-field { position:absolute !important; z-index:5 !important; bottom:60px !important; left:20px !important; right:170px !important; top:auto !important; display:flex !important; align-items:flex-end !important; flex-wrap:wrap !important; gap:22px !important; padding:10px !important; pointer-events:none !important; }
@@ -1743,4 +1743,218 @@ body.dark .priority-pill {
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateX(-50%) translateY(10px); }
   to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TASK ITEM — Redesigned for clarity + mobile safety
+═══════════════════════════════════════════════════════════════ */
+.task-item {
+  display: flex;
+  align-items: stretch;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  margin-bottom: 8px;
+  overflow: hidden;
+  transition: box-shadow 0.2s, transform 0.15s;
+  position: relative;
+}
+.task-item:hover {
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+}
+.task-item.task-completed {
+  opacity: 0.55;
+}
+
+/* Left accent stripe */
+.task-priority-stripe {
+  width: 4px;
+  flex-shrink: 0;
+  border-radius: 0;
+}
+
+/* Drag handle */
+.drag-handle {
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  color: var(--muted);
+  opacity: 0.3;
+  cursor: grab;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+/* Body: content + actions stacked */
+.task-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 12px 10px;
+  gap: 10px;
+}
+
+/* Content area */
+.task-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.4;
+  word-break: break-word;
+  margin-bottom: 4px;
+}
+.task-title.strikethrough {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.task-desc {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 6px;
+  line-height: 1.5;
+}
+
+.task-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+}
+
+.task-badge {
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Actions row — always inside card, never overflows */
+.task-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: nowrap;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  padding-top: 8px;
+}
+
+.task-done-btn,
+.task-edit-btn,
+.task-delete-btn {
+  flex: 1;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+  white-space: nowrap;
+  text-align: center;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.task-done-btn {
+  background: rgba(0,200,122,0.1);
+  border-color: rgba(0,200,122,0.25);
+  color: #00c87a;
+}
+.task-done-btn:hover {
+  background: rgba(0,200,122,0.2);
+}
+
+.task-edit-btn {
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.1);
+  color: var(--muted);
+}
+.task-edit-btn:hover {
+  background: rgba(255,255,255,0.1);
+  color: var(--text);
+}
+
+.task-delete-btn {
+  background: rgba(239,68,68,0.08);
+  border-color: rgba(239,68,68,0.2);
+  color: #ef4444;
+  flex: 0 0 auto;
+  padding: 7px 12px;
+}
+.task-delete-btn:hover {
+  background: rgba(239,68,68,0.18);
+}
+
+/* Keep old .complete-btn .edit-btn .delete-btn as aliases */
+.complete-btn { @extend .task-done-btn; }
+.edit-btn     { @extend .task-edit-btn; }
+.delete-btn   { @extend .task-delete-btn; }
+
+/* Task section header */
+.task-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--muted);
+  padding: 12px 0 8px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 10px;
+}
+
+/* Empty state */
+.task-empty {
+  text-align: center;
+  padding: 32px 20px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FOCUS ROOMS — Center alignment fix
+═══════════════════════════════════════════════════════════════ */
+.fr-room {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+}
+
+.fr-room-center {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex: 1 !important;
+  text-align: center !important;
+  padding: 20px 200px 60px 20px !important;
+  position: relative !important;
+  z-index: 10 !important;
+  gap: 20px !important;
+}
+
+.fr-timer-block {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  text-align: center !important;
+}
+
+.fr-room-controls {
+  display: flex !important;
+  gap: 12px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-wrap: wrap !important;
 }

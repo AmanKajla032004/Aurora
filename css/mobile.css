@@ -1,38 +1,41 @@
-/* ===============================
-   MOBILE RESPONSIVE — Aurora Planner
-   Breakpoints:
-     768px  — tablet
-     480px  — mobile
-================================= */
+/* ===============================================================
+   AURORA MOBILE — Complete Responsive Overhaul
+   Breakpoints: 768px tablet | 480px mobile
+   Issues fixed:
+   - Sidebar overlaying content text
+   - Tasks section cluttered layout
+   - Task action buttons overflowing borders
+   - Focus rooms left-alignment
+================================================================ */
 
-/* ---- MOBILE HAMBURGER BUTTON ---- */
+/* ── HAMBURGER BUTTON ─────────────────────────────────────────── */
 .mobile-menu-btn {
   display: none;
   position: fixed;
   top: 14px;
   left: 14px;
   z-index: 1200;
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
   background: var(--surface);
   border: 1px solid var(--border);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.25);
   cursor: pointer;
   align-items: center;
   justify-content: center;
   font-size: 18px;
   color: var(--text);
-  transition: background 0.2s, transform 0.2s;
+  transition: background 0.2s, transform 0.15s;
 }
-.mobile-menu-btn:hover { transform: scale(1.05); }
+.mobile-menu-btn:active { transform: scale(0.93); }
 
-/* ---- SIDEBAR OVERLAY (mobile) ---- */
+/* ── SIDEBAR OVERLAY ──────────────────────────────────────────── */
 .sidebar-overlay {
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0,0,0,0.55);
   backdrop-filter: blur(4px);
   z-index: 1099;
   opacity: 0;
@@ -40,16 +43,17 @@
 }
 .sidebar-overlay.active { opacity: 1; }
 
-/* ===============================
+/* ================================================================
    TABLET — 768px
-================================= */
+================================================================ */
 @media (max-width: 768px) {
+
   /* Show hamburger */
   .mobile-menu-btn { display: flex; }
   .sidebar-overlay { display: block; pointer-events: none; }
   .sidebar-overlay.active { pointer-events: all; }
 
-  /* Sidebar slides off-screen, returns on toggle */
+  /* ── SIDEBAR: slides off-screen, NEVER overlaps content ──────── */
   .sidebar {
     position: fixed !important;
     top: 0; left: 0; bottom: 0;
@@ -58,123 +62,516 @@
     transition: transform 0.32s cubic-bezier(0.32,0.72,0,1) !important;
     width: 260px !important;
     padding-top: 60px !important;
-    box-shadow: 4px 0 40px rgba(0,0,0,0.3);
+    box-shadow: 6px 0 40px rgba(0,0,0,0.35);
   }
   .sidebar.mobile-open { transform: translateX(0); }
-  .main-area { width: 100%; }
-  .topbar { padding: 14px 20px 14px 60px !important; }
+
+  /* ── MAIN AREA: always full width, never pushed ───────────────── */
+  .main-area {
+    width: 100% !important;
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+  }
+
+  /* ── TOPBAR ──────────────────────────────────────────────────── */
+  .topbar {
+    padding: 14px 16px 14px 64px !important;
+    min-height: 56px;
+  }
   #pageTitle { font-size: 18px !important; }
 
-  /* Content */
-  #appContent { padding: 16px !important; }
+  /* ── CONTENT PADDING ─────────────────────────────────────────── */
+  #appContent { padding: 14px !important; }
 
-  /* Dashboard stats — 2 cols on tablet */
+  /* ── DASHBOARD STATS ─────────────────────────────────────────── */
   .stats-section {
     grid-template-columns: repeat(2, 1fr) !important;
   }
   .home-stats-row {
     grid-template-columns: repeat(2, 1fr) !important;
   }
-  .home-two-col, .home-bottom-row {
+  .home-two-col,
+  .home-bottom-row {
     grid-template-columns: 1fr !important;
   }
-  .analytics-top {
-    grid-template-columns: 1fr !important;
-  }
-  .analytics-mini-stats {
-    grid-template-columns: repeat(2, 1fr) !important;
-  }
-  .fr-rooms-grid {
-    grid-template-columns: 1fr !important;
-  }
+
+  /* ── ANALYTICS ───────────────────────────────────────────────── */
+  .analytics-top { grid-template-columns: 1fr !important; }
+  .analytics-mini-stats { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* ── CALENDAR ────────────────────────────────────────────────── */
+  .cal-sheet { max-height: 78% !important; }
+  .cal-day { min-height: 58px !important; font-size: 12px; }
+
+  /* ── FOCUS ROOMS ─────────────────────────────────────────────── */
+  .fr-rooms-grid { grid-template-columns: 1fr !important; }
+
+  /* ── BRAINSTORM ──────────────────────────────────────────────── */
   .bs-grid {
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)) !important;
   }
 
-  /* Calendar sheet */
-  .cal-sheet { max-height: 75% !important; }
-  .cal-day { min-height: 60px !important; font-size: 12px; }
-
-  /* Focus mode */
+  /* ── FOCUS MODE ──────────────────────────────────────────────── */
   .focus-ui { padding: 20px 16px !important; }
   .focus-time { font-size: 38px !important; }
   .focus-timer-wrap { width: 180px !important; height: 180px !important; }
-  .fr-hud { grid-template-columns: 1fr !important; text-align: center; gap: 16px; padding: 16px !important; }
-  .fr-hud-right { align-items: center !important; }
-  .fr-aura-field { gap: 30px !important; padding: 60px 20px !important; }
 
-  /* BS panel */
-  .bs-board-panel { width: 100vw !important; }
-  .bs-board-topbar { flex-direction: column; gap: 10px; align-items: flex-start !important; }
-  .bs-board-topbar-right { width: 100%; justify-content: flex-end; }
+  /* ── FOCUS ROOM — fix left-alignment issue ───────────────────── */
+  .fr-room-center {
+    padding: 20px 20px 80px 20px !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+  }
+  .fr-timer { text-align: center !important; }
+  .fr-timer-block { text-align: center !important; width: 100% !important; }
+  .fr-room-controls {
+    justify-content: center !important;
+    width: 100% !important;
+  }
+  .fr-members-panel {
+    position: relative !important;
+    width: 100% !important;
+    border-left: none !important;
+    border-top: 1px solid rgba(255,255,255,0.08) !important;
+    padding: 14px 16px !important;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+  .fr-members-title { margin-bottom: 0 !important; margin-right: 8px; }
+  .fr-members-list { flex-direction: row !important; flex-wrap: wrap !important; gap: 8px !important; }
+  .fr-aura-field {
+    gap: 24px !important;
+    padding: 30px 16px !important;
+    justify-content: center !important;
+  }
+  .fr-hud {
+    grid-template-columns: 1fr !important;
+    text-align: center;
+    gap: 16px;
+    padding: 16px !important;
+  }
+  .fr-hud-right { align-items: center !important; }
 }
 
-/* ===============================
+/* ================================================================
    MOBILE — 480px
-================================= */
+================================================================ */
 @media (max-width: 480px) {
-  /* Stats single col */
-  .stats-section { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
-  .home-stats-row { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
+
+  /* ── TOPBAR ──────────────────────────────────────────────────── */
+  .topbar { padding: 12px 14px 12px 58px !important; }
+  #appContent { padding: 10px !important; }
+
+  /* ── STATS ───────────────────────────────────────────────────── */
+  .stats-section {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
+  .home-stats-row {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
   .charts-section { grid-template-columns: 1fr !important; }
 
-  /* Home hero stacks */
-  .home-hero { flex-direction: column !important; text-align: center; padding: 22px 20px !important; }
-  .home-ring-wrap { order: -1; margin: 0 auto 10px !important; }
+  /* ── HOME HERO ───────────────────────────────────────────────── */
+  .home-hero {
+    flex-direction: column !important;
+    text-align: center;
+    padding: 20px !important;
+  }
+  .home-ring-wrap {
+    order: -1;
+    margin: 0 auto 12px !important;
+  }
   .home-greeting { font-size: 20px !important; }
 
-  /* Tasks */
-  .task-header { flex-direction: column !important; gap: 12px; }
-  .task-header-right { flex-wrap: wrap !important; }
-  .form-row { flex-direction: column !important; }
+  /* ════════════════════════════════════════════════════════════
+     TASKS — Complete Mobile Redesign
+  ════════════════════════════════════════════════════════════ */
 
-  /* Calendar DOW  — shorter */
-  .cal-dow { font-size: 9px !important; padding: 5px 0 !important; }
-  .cal-day { min-height: 48px !important; padding: 4px !important; }
+  /* Header: stack vertically, full width buttons */
+  .task-header {
+    flex-direction: column !important;
+    gap: 10px !important;
+    margin-bottom: 12px !important;
+  }
+  .add-task-btn {
+    width: 100% !important;
+    text-align: center !important;
+    padding: 13px !important;
+    font-size: 14px !important;
+  }
+  .kbd-hint { display: none !important; }
+
+  /* Sort + filter controls: scrollable row */
+  .task-header-right {
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  .sort-control {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+  .sort-label { white-space: nowrap; font-size: 12px; }
+  .sort-pills {
+    display: flex !important;
+    gap: 6px !important;
+    overflow-x: auto !important;
+    flex: 1 !important;
+    padding-bottom: 2px !important;
+  }
+  .sort-pills::-webkit-scrollbar { display: none; }
+  .sort-pill {
+    white-space: nowrap !important;
+    font-size: 12px !important;
+    padding: 5px 10px !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Monthly/Yearly toggle buttons */
+  .task-header-right > .ghost-btn {
+    display: none !important;
+  }
+
+  /* Completed filter row */
+  .completed-filter-row {
+    display: flex !important;
+    gap: 6px !important;
+    overflow-x: auto !important;
+    padding-bottom: 4px !important;
+    margin-bottom: 12px !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  .completed-filter-row::-webkit-scrollbar { display: none; }
+  .filter-btn {
+    white-space: nowrap !important;
+    font-size: 12px !important;
+    padding: 6px 12px !important;
+    flex-shrink: 0 !important;
+    border-radius: 20px !important;
+  }
+
+  /* Task section headers */
+  .task-section-title {
+    font-size: 13px !important;
+    padding: 8px 0 6px !important;
+    margin-bottom: 6px !important;
+  }
+
+  /* ── TASK ITEM — clean card layout ──────────────────────────── */
+  .task-item {
+    padding: 12px !important;
+    border-radius: 12px !important;
+    margin-bottom: 8px !important;
+    position: relative !important;
+  }
+
+  /* Task item inner layout — stack content above actions */
+  .task-item-inner,
+  .task-item > div:first-child {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+
+  /* Task title */
+  .task-title {
+    font-size: 14px !important;
+    line-height: 1.4 !important;
+    word-break: break-word !important;
+    padding-right: 0 !important;
+  }
+
+  /* Task meta (due date, priority badge) */
+  .task-meta {
+    font-size: 11px !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+
+  /* ── TASK ACTION BUTTONS — contained, no overflow ───────────── */
+  .task-actions {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 6px !important;
+    width: 100% !important;
+    margin-top: 4px !important;
+    flex-shrink: 0 !important;
+    overflow: visible !important;
+  }
+  .task-actions button,
+  .task-done-btn,
+  .task-edit-btn,
+  .task-delete-btn {
+    flex: 1 !important;
+    padding: 8px 4px !important;
+    font-size: 12px !important;
+    border-radius: 8px !important;
+    white-space: nowrap !important;
+    min-width: 0 !important;
+    text-align: center !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  /* ── TASK MODAL — full screen on mobile ─────────────────────── */
+  .task-modal-overlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+  .task-modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 92vh !important;
+    border-radius: 20px 20px 0 0 !important;
+    overflow-y: auto !important;
+    padding: 20px 16px 32px !important;
+  }
+  .modal-header {
+    margin-bottom: 16px !important;
+  }
+  .modal-header h2 { font-size: 18px !important; }
+
+  /* Form inside modal */
+  .form-group {
+    margin-bottom: 14px !important;
+  }
+  .form-group label {
+    font-size: 12px !important;
+    margin-bottom: 6px !important;
+  }
+  .form-row {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  input[type="date"],
+  input[type="time"] {
+    width: 100% !important;
+    font-size: 14px !important;
+    padding: 10px 12px !important;
+  }
+
+  /* Priority pills */
+  .priority-pills {
+    display: flex !important;
+    gap: 6px !important;
+    flex-wrap: wrap !important;
+  }
+  .priority-pill {
+    flex: 1 !important;
+    min-width: calc(50% - 6px) !important;
+    font-size: 12px !important;
+    padding: 8px 6px !important;
+    text-align: center !important;
+  }
+
+  /* Frequency pills */
+  .freq-pills {
+    display: flex !important;
+    gap: 5px !important;
+    overflow-x: auto !important;
+    padding-bottom: 2px !important;
+  }
+  .freq-pills::-webkit-scrollbar { display: none; }
+  .freq-pill {
+    flex-shrink: 0 !important;
+    font-size: 12px !important;
+    padding: 7px 12px !important;
+  }
+
+  /* Repeat day buttons */
+  .repeat-days-row {
+    display: flex !important;
+    gap: 5px !important;
+    flex-wrap: wrap !important;
+  }
+  .repeat-day-btn {
+    flex: 1 !important;
+    min-width: calc(14% - 4px) !important;
+    font-size: 11px !important;
+    padding: 6px 2px !important;
+    text-align: center !important;
+  }
+
+  /* Modal action buttons */
+  .modal-actions {
+    display: flex !important;
+    gap: 10px !important;
+    margin-top: 16px !important;
+  }
+  .modal-actions .primary-btn {
+    flex: 2 !important;
+    padding: 13px !important;
+    font-size: 14px !important;
+  }
+  .modal-actions .ghost-btn {
+    flex: 1 !important;
+    padding: 13px !important;
+    font-size: 14px !important;
+  }
+
+  /* Subtask input row */
+  .subtask-input-row {
+    display: flex !important;
+    gap: 8px !important;
+  }
+  .subtask-input-row input {
+    flex: 1 !important;
+    font-size: 13px !important;
+  }
+
+  /* ── CALENDAR ────────────────────────────────────────────────── */
+  .cal-dow {
+    font-size: 9px !important;
+    padding: 4px 0 !important;
+  }
+  .cal-day {
+    min-height: 46px !important;
+    padding: 3px !important;
+  }
   .cal-day-num { font-size: 11px !important; }
-  .cal-sheet { max-height: 85% !important; }
-  .cal-add-meta { flex-direction: column !important; }
-  .cal-sheet-add-btn { width: 100% !important; }
+  .cal-sheet { max-height: 88% !important; }
+  .cal-add-meta { flex-direction: column !important; gap: 8px !important; }
+  .cal-sheet-add-btn {
+    width: 100% !important;
+    padding: 12px !important;
+  }
 
-  /* Analytics top */
-  .analytics-score-card { flex-direction: column !important; align-items: center; }
-  .analytics-mini-stats { grid-template-columns: 1fr 1fr !important; }
+  /* ── ANALYTICS ───────────────────────────────────────────────── */
+  .analytics-score-card {
+    flex-direction: column !important;
+    align-items: center;
+  }
+  .analytics-mini-stats {
+    grid-template-columns: 1fr 1fr !important;
+  }
 
-  /* BS */
+  /* ── BRAINSTORM ──────────────────────────────────────────────── */
   .bs-idea-bar { flex-direction: column !important; }
   .bs-idea-bar-right { flex-direction: row !important; }
 
-  /* Topbar */
-  .topbar { padding: 12px 16px 12px 56px !important; }
-  #appContent { padding: 12px !important; }
+  /* ── MODAL (general) ─────────────────────────────────────────── */
+  .task-modal { width: 100% !important; }
 
-  /* Modal */
-  .task-modal { width: calc(100vw - 24px) !important; max-height: 90vh; overflow-y: auto; }
+  /* ── FOCUS ROOMS — mobile layout ────────────────────────────── */
+  .fr-timer { font-size: 52px !important; }
+  .fr-room-center {
+    padding: 16px 16px 70px 16px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    text-align: center !important;
+  }
+  .fr-timer-block {
+    width: 100% !important;
+    text-align: center !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+  }
+  .fr-room-controls {
+    flex-direction: row !important;
+    justify-content: center !important;
+    width: 100% !important;
+    gap: 10px !important;
+    flex-wrap: nowrap !important;
+  }
+  .fr-ctrl {
+    flex: 1 !important;
+    max-width: 130px !important;
+    padding: 11px 8px !important;
+    font-size: 13px !important;
+    text-align: center !important;
+  }
+  .fr-aura-field {
+    padding: 24px 12px !important;
+    gap: 20px !important;
+    justify-content: center !important;
+    flex-wrap: wrap !important;
+  }
+  .fr-room-topbar {
+    padding: 12px 14px !important;
+  }
+  .fr-topbar-btn {
+    font-size: 12px !important;
+    padding: 7px 12px !important;
+  }
 
-  /* Focus rooms */
-  .fr-timer { font-size: 50px !important; }
-  .focus-mode-pills { flex-wrap: wrap !important; gap: 6px !important; }
-  .fr-timer-controls { flex-direction: column !important; width: 100%; }
-  .fr-ctrl-btn { width: 100% !important; }
+  /* ── REPORT / SWOT ───────────────────────────────────────────── */
+  .report-stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+  .swot-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── FRIENDS ─────────────────────────────────────────────────── */
+  .fr-my-card {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 14px !important;
+  }
+  .fr-my-actions {
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 8px !important;
+  }
+  .fr-edit-btn { width: 100% !important; }
+  .fr-friend-card {
+    padding: 12px !important;
+  }
+  .fr-friend-actions {
+    flex-direction: column !important;
+    gap: 6px !important;
+  }
+  .fr-open-btn, .fr-remove-btn {
+    width: 100% !important;
+    text-align: center !important;
+  }
+
+  /* ── WHISPER / ANIMATIONS ────────────────────────────────────── */
+  .whisper-container { padding: 16px !important; }
 }
 
-/* ===============================
-   TOUCH — Better tap targets
-================================= */
+/* ================================================================
+   TOUCH — Better tap targets & interactions
+================================================================ */
 @media (hover: none) {
-  .sidebar nav button { padding: 14px !important; }
-  .cal-day { cursor: pointer; }
-  .cal-day:active { background: rgba(0,200,122,0.1); }
+  .sidebar nav button {
+    padding: 14px 16px !important;
+    min-height: 48px;
+  }
+  .cal-day { cursor: pointer; min-height: 44px; }
+  .cal-day:active { background: rgba(0,200,122,0.12); }
+  .task-item:active { background: rgba(255,255,255,0.04); }
   .bs-card:active { transform: scale(0.98); }
-  .primary-btn:active, .ghost-btn:active { transform: scale(0.97); opacity: 0.85; }
-  /* Remove hover-only effects on touch */
-  .bs-card:hover { transform: none; box-shadow: none; }
-  .task-item:hover { background: transparent; }
+  .primary-btn:active,
+  .ghost-btn:active {
+    transform: scale(0.97);
+    opacity: 0.85;
+  }
+  /* Disable hover-only effects on touch */
+  .bs-card:hover { transform: none !important; box-shadow: none !important; }
+  .task-item:hover { background: transparent !important; }
+  .fr-room-card:hover {
+    transform: none !important;
+  }
 }
 
-/* ===============================
-   SWIPE INDICATOR — calendar
-================================= */
+/* ================================================================
+   SWIPE HINT — calendar
+================================================================ */
 .cal-swipe-hint {
   display: none;
   text-align: center;
@@ -187,36 +584,35 @@
   .cal-swipe-hint { display: block; }
 }
 
-/* ===============================
+/* ================================================================
    SAFE AREA — notch / home bar
-================================= */
+================================================================ */
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
-  .cal-sheet { padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
-  .fr-status-bar { bottom: calc(24px + env(safe-area-inset-bottom)); }
-  .sidebar { padding-bottom: calc(22px + env(safe-area-inset-bottom)); }
+  .cal-sheet {
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
+  }
+  .fr-status-bar {
+    bottom: calc(24px + env(safe-area-inset-bottom));
+  }
+  .sidebar {
+    padding-bottom: calc(22px + env(safe-area-inset-bottom));
+  }
+  .task-modal {
+    padding-bottom: calc(32px + env(safe-area-inset-bottom)) !important;
+  }
 }
 
-/* ===============================
-   FRIENDS — Mobile fixes
-================================= */
+/* ================================================================
+   FRIENDS SECTION — mobile
+================================================================ */
 @media (max-width: 768px) {
-  .fr-my-card { flex-wrap: wrap; }
-  .fr-my-actions { width: 100%; flex-direction: row; align-items: center; justify-content: space-between; }
-  .fr-stats-row { grid-template-columns: repeat(3, 1fr) !important; }
-  .fr-modal { max-height: 92vh; border-radius: 18px 18px 0 0; }
-  .fr-modal-overlay { align-items: flex-end; padding: 0; }
-  .fr-modal-header { flex-direction: column; align-items: flex-start; gap: 10px; }
-  .fr-modal-tabs { width: 100%; justify-content: flex-start; }
-  .fr-chat-panel { height: 320px; }
-  .fr-add-row { flex-direction: column; }
-  .fr-accent-btn { width: 100%; text-align: center; }
-  .fr-req-btns { flex-direction: column; gap: 4px; }
-}
-
-@media (max-width: 480px) {
-  .fr-stats-row { grid-template-columns: repeat(2, 1fr) !important; }
-  .fr-friend-card { flex-wrap: wrap; gap: 8px; }
-  .fr-friend-actions { width: 100%; justify-content: flex-end; }
-  .fr-panel { padding: 14px 16px; }
-  .fr-username-edit-row { flex-direction: column; }
+  .fr-section-card { padding: 16px !important; }
+  .fr-modal-box {
+    width: calc(100vw - 24px) !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+    border-radius: 16px !important;
+  }
+  .fr-chat-messages { max-height: 200px !important; }
+  .fr-stats-grid { grid-template-columns: 1fr 1fr !important; }
 }
