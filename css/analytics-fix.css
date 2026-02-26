@@ -1,0 +1,200 @@
+/* ================================================================
+   ANALYTICS — Definitive fix for chart heights + dark mode
+   ================================================================ */
+
+.analytics-container {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 14px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* Override the global .charts-section auto-fit grid */
+.analytics-container .charts-section {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 12px !important;
+  overflow: visible !important;
+}
+
+/* All chart cards in analytics */
+.analytics-container .chart-card {
+  background: var(--surface) !important;
+  border: 1.5px solid var(--border) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.04) !important;
+}
+body.dark .analytics-container .chart-card {
+  background: #1c2740 !important;
+  border-color: rgba(255,255,255,0.07) !important;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.28) !important;
+}
+
+/* Charts with fixed height inside charts-section */
+.analytics-container .charts-section .chart-card {
+  padding: 14px 16px !important;
+  height: 210px !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+}
+.analytics-container .charts-section .chart-card h3 {
+  flex-shrink: 0 !important;
+}
+.analytics-container .charts-section .chart-card canvas {
+  flex: 1 !important;
+  width: 100% !important;
+  min-height: 0 !important;
+  max-height: 155px !important;
+}
+
+/* Standalone chart cards (heatmap, velocity, goal) */
+.analytics-container > .chart-card {
+  padding: 16px 18px !important;
+  height: auto !important;
+}
+.analytics-container > .chart-card canvas {
+  width: 100% !important;
+  max-height: 170px !important;
+  display: block !important;
+}
+
+/* Chart card titles */
+.analytics-container .chart-card h3,
+.analytics-container .card-title {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.8px !important;
+  text-transform: uppercase !important;
+  color: var(--text) !important;
+  margin: 0 0 10px !important;
+}
+
+/* ── Top score card ── */
+.analytics-top {
+  background: var(--surface) !important;
+  border: 1.5px solid var(--border) !important;
+  border-radius: 16px !important;
+  padding: 18px 20px !important;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.04) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+}
+body.dark .analytics-top {
+  background: #1c2740 !important;
+  border-color: rgba(255,255,255,0.07) !important;
+}
+.analytics-score-card {
+  display: flex !important;
+  align-items: center !important;
+  gap: 20px !important;
+  flex-wrap: wrap !important;
+}
+.score-ring-wrap {
+  position: relative !important;
+  width: 100px !important;
+  height: 100px !important;
+  flex-shrink: 0 !important;
+}
+.score-ring-svg {
+  width: 100% !important;
+  height: 100% !important;
+  transform: rotate(-90deg) !important;
+}
+.score-ring-bg   { fill: none; stroke: rgba(0,0,0,0.07); stroke-width: 7; }
+body.dark .score-ring-bg { stroke: rgba(255,255,255,0.07) !important; }
+.score-ring-fill { fill: none; stroke: var(--accent); stroke-width: 7; stroke-linecap: round; filter: drop-shadow(0 0 5px rgba(0,200,122,0.35)); transition: stroke-dashoffset 1.4s cubic-bezier(0.4,0,0.2,1); }
+.score-ring-label {
+  position: absolute !important;
+  inset: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 1px !important;
+}
+.score-num {
+  font-size: 32px !important;
+  font-weight: 800 !important;
+  color: var(--text) !important;
+  line-height: 1 !important;
+}
+.score-sub {
+  font-size: 8px !important;
+  letter-spacing: 2px !important;
+  text-transform: uppercase !important;
+  color: var(--muted) !important;
+}
+.score-info { flex: 1; }
+.score-info h3 { font-size: 16px !important; font-weight: 700 !important; color: var(--text) !important; margin: 0 0 4px !important; text-transform: none !important; letter-spacing: 0 !important; }
+.score-info p  { font-size: 13px !important; color: var(--muted) !important; margin: 0 !important; }
+
+/* Mini stats */
+.analytics-mini-stats {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+}
+.analytics-mini {
+  padding: 10px 12px !important;
+  border-radius: 12px !important;
+  background: rgba(0,0,0,0.03) !important;
+  border: 1px solid var(--border) !important;
+}
+body.dark .analytics-mini {
+  background: rgba(255,255,255,0.04) !important;
+  border-color: rgba(255,255,255,0.06) !important;
+}
+.am-label {
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.5px !important;
+  text-transform: uppercase !important;
+  color: var(--muted) !important;
+  margin-bottom: 4px !important;
+}
+.am-val {
+  font-size: 18px !important;
+  font-weight: 800 !important;
+  color: var(--text) !important;
+  line-height: 1 !important;
+}
+
+/* Heatmap */
+.heatmap-grid {
+  display: grid !important;
+  grid-template-rows: repeat(7, 10px) !important;
+  grid-auto-flow: column !important;
+  gap: 3px !important;
+  overflow-x: auto !important;
+  padding-bottom: 4px !important;
+}
+.heat-cell { width: 10px !important; height: 10px !important; border-radius: 2px !important; flex-shrink: 0 !important; }
+.heatmap-legend { display: flex; align-items: center; gap: 4px; margin-top: 8px; }
+
+/* Insights */
+.analytics-insights-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.insight-card { background: var(--surface); border: 1.5px solid var(--border); border-radius: 14px; padding: 14px 16px; }
+body.dark .insight-card { background: #1c2740; border-color: rgba(255,255,255,0.06); }
+.insight-icon { font-size: 20px; margin-bottom: 6px; }
+.insight-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.insight-body  { font-size: 12px; color: var(--muted); line-height: 1.55; }
+
+/* Goal progress */
+.goal-progress-wrap { display: flex; flex-direction: column; gap: 12px; margin-top: 6px; }
+.goal-progress-row  { display: flex; flex-direction: column; gap: 5px; }
+.goal-progress-label { display: flex; justify-content: space-between; font-size: 13px; color: var(--text); }
+.goal-progress-pct { font-weight: 700; color: var(--accent); }
+.goal-progress-track { height: 6px; background: rgba(0,0,0,0.06); border-radius: 3px; overflow: hidden; }
+body.dark .goal-progress-track { background: rgba(255,255,255,0.06) !important; }
+.goal-progress-fill { height: 100%; border-radius: 3px; transition: width 0.8s ease; }
+
+/* Responsive */
+@media (max-width: 680px) {
+  .analytics-container .charts-section { grid-template-columns: 1fr !important; }
+  .analytics-mini-stats { grid-template-columns: repeat(2, 1fr) !important; }
+}

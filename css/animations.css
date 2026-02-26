@@ -1,0 +1,199 @@
+/* ===============================
+   BASE ANIMATIONS
+================================= */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideInRight {
+    from { opacity: 0; transform: translateX(16px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.96); }
+    to   { opacity: 1; transform: scale(1); }
+}
+@keyframes auroraGlow {
+    0%   { background-position: 0% center; }
+    100% { background-position: 200% center; }
+}
+@keyframes shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+@keyframes pulse {
+    0%,100% { transform: scale(1);   opacity: 1; }
+    50%      { transform: scale(1.5); opacity: 0.5; }
+}
+@keyframes ringDraw {
+    from { stroke-dashoffset: 999; }
+}
+@keyframes countUp {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes particleDrift {
+    0%   { transform: translateY(0)   translateX(0); opacity: 0.3; }
+    50%  { transform: translateY(-15px) translateX(8px); opacity: 0.15; }
+    100% { transform: translateY(0)   translateX(0); opacity: 0.3; }
+}
+@keyframes inputGlow {
+    0%,100% { box-shadow: 0 0 0 0 rgba(0,245,160,0); }
+    50%      { box-shadow: 0 0 18px 2px rgba(0,245,160,0.25); }
+}
+@keyframes moodPop {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.35); }
+    100% { transform: scale(1.15); }
+}
+@keyframes rippleOut {
+    0%   { transform: scale(0.8); opacity: 0.6; }
+    100% { transform: scale(2.5); opacity: 0; }
+}
+@keyframes calSlideLeft {
+    from { opacity: 0; transform: translateX(20px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes calSlideRight {
+    from { opacity: 0; transform: translateX(-20px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes staggerFade {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes subtaskSlideDown {
+    from { opacity: 0; transform: translateY(-8px); max-height: 0; }
+    to   { opacity: 1; transform: translateY(0);   max-height: 60px; }
+}
+
+/* ===============================
+   PAGE TRANSITION
+================================= */
+.fade-in {
+    animation: fadeIn 0.18s ease-out forwards;
+}
+
+/* ===============================
+   STAGGERED CARD LOAD
+================================= */
+.stat-card:nth-child(1) { animation: staggerFade 0.3s ease 0.00s both; }
+.stat-card:nth-child(2) { animation: staggerFade 0.3s ease 0.04s both; }
+.stat-card:nth-child(3) { animation: staggerFade 0.3s ease 0.08s both; }
+.stat-card:nth-child(4) { animation: staggerFade 0.3s ease 0.12s both; }
+.stat-card:nth-child(5) { animation: staggerFade 0.3s ease 0.16s both; }
+
+.task-block:nth-child(1) { animation: staggerFade 0.3s ease 0.00s both; }
+.task-block:nth-child(2) { animation: staggerFade 0.3s ease 0.06s both; }
+.task-block:nth-child(3) { animation: staggerFade 0.3s ease 0.12s both; }
+.task-block:nth-child(4) { animation: staggerFade 0.3s ease 0.18s both; }
+
+.bs-card:nth-child(1) { animation: staggerFade 0.3s ease 0.00s both; }
+.bs-card:nth-child(2) { animation: staggerFade 0.3s ease 0.05s both; }
+.bs-card:nth-child(3) { animation: staggerFade 0.3s ease 0.10s both; }
+.bs-card:nth-child(4) { animation: staggerFade 0.3s ease 0.15s both; }
+.bs-card:nth-child(5) { animation: staggerFade 0.3s ease 0.20s both; }
+.bs-card:nth-child(6) { animation: staggerFade 0.3s ease 0.25s both; }
+
+.chart-card { animation: staggerFade 0.35s ease 0.05s both; }
+.home-hero  { animation: staggerFade 0.35s ease 0.00s both; }
+.home-card  { animation: staggerFade 0.35s ease 0.10s both; }
+
+/* ===============================
+   MODAL ANIMATION
+================================= */
+.task-modal       { animation: scaleIn 0.18s ease forwards; }
+.bs-board-panel   { transition: transform 0.28s cubic-bezier(0.22,1,0.36,1); }
+.cal-panel        { animation: slideInRight 0.2s ease forwards; }
+
+/* ===============================
+   SIDEBAR HOVER
+================================= */
+.sidebar nav button {
+    transition: background 0.25s ease, transform 0.2s ease, color 0.25s ease, padding-left 0.2s ease;
+}
+
+/* ===============================
+   BUTTON LIFT
+================================= */
+.add-task-btn:hover,
+.primary-btn:hover,
+.bs-new-btn:hover,
+.ghost-btn:hover {
+    transform: translateY(-2px);
+    transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* ===============================
+   CHART BARS ANIMATE UP
+================================= */
+canvas {
+    animation: fadeIn 0.5s ease 0.1s both;
+}
+
+/* ===============================
+   PROGRESS RINGS ANIMATE
+================================= */
+.ring-fill,
+.hr-fill,
+.score-ring-fill {
+    animation: ringDraw 1.2s cubic-bezier(0.4,0,0.2,1) forwards;
+    transition: stroke-dashoffset 1s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* ===============================
+   WHISPER PARTICLES DRIFT
+================================= */
+.whisper-canvas {
+    animation: none;
+}
+
+/* Input glow when typing in whisper */
+.whisper-beam-box textarea:focus {
+    animation: inputGlow 2s ease infinite;
+}
+
+/* Mood pop on select */
+.whisper-mood-btn.active {
+    animation: moodPop 0.25s ease forwards;
+}
+
+/* ===============================
+   SUBTASK SLIDE DOWN
+================================= */
+.subtask-row {
+    animation: subtaskSlideDown 0.18s ease forwards;
+    overflow: hidden;
+}
+
+/* ===============================
+   STAT VALUE COUNT UP FEEL
+================================= */
+.stat-value,
+.hsp-val,
+.am-val,
+.home-streak-num {
+    animation: countUp 0.4s ease forwards;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ===============================
+   CALENDAR GRID TRANSITION
+================================= */
+.cal-grid {
+    animation: calSlideLeft 0.2s ease forwards;
+}
+
+/* ===============================
+   IDEA ITEM ENTRANCE
+================================= */
+.bs-idea-item {
+    animation: staggerFade 0.2s ease forwards;
+}
+
+/* ===============================
+   FOCUS MODE FADE
+================================= */
+.focus-mode-overlay {
+    animation: fadeIn 0.3s ease forwards;
+}

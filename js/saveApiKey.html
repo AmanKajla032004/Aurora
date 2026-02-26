@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aurora — Save API Key</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      background: #010108;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      padding: 20px;
+    }
+
+    .card {
+      background: #0d1117;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 20px;
+      padding: 36px;
+      width: 100%;
+      max-width: 480px;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+    }
+
+    .logo {
+      font-size: 28px;
+      font-weight: 900;
+      background: linear-gradient(135deg, #00f5a0, #00d9f5);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 6px;
+      letter-spacing: -1px;
+    }
+
+    h2 {
+      font-size: 16px;
+      color: #fff;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: #6b7280;
+      margin-bottom: 28px;
+      line-height: 1.6;
+    }
+
+    .step {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      font-size: 13px;
+      color: #9ca3af;
+      line-height: 1.6;
+    }
+
+    .step strong { color: #fff; }
+    .step a { color: #00c87a; text-decoration: none; }
+    .step a:hover { text-decoration: underline; }
+
+    .step-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px; height: 20px;
+      background: rgba(0,200,122,0.15);
+      color: #00c87a;
+      border-radius: 50%;
+      font-size: 11px;
+      font-weight: 800;
+      margin-right: 8px;
+      flex-shrink: 0;
+    }
+
+    .input-wrap { margin: 20px 0 0; }
+
+    label {
+      display: block;
+      font-size: 12px;
+      color: #6b7280;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    input {
+      width: 100%;
+      padding: 13px 16px;
+      border-radius: 12px;
+      border: 1.5px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.05);
+      color: #fff;
+      font-size: 14px;
+      font-family: monospace;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus { border-color: #00c87a; }
+    input::placeholder { color: #4b5563; }
+
+    .save-btn {
+      width: 100%;
+      margin-top: 14px;
+      padding: 14px;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, #00f5a0, #00c87a);
+      color: #000;
+      font-size: 15px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      letter-spacing: 0.3px;
+    }
+
+    .save-btn:hover { opacity: 0.9; }
+    .save-btn:active { transform: scale(0.98); }
+    .save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .status {
+      margin-top: 14px;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 600;
+      display: none;
+      line-height: 1.5;
+    }
+
+    .status.success {
+      background: rgba(0,200,122,0.12);
+      border: 1px solid rgba(0,200,122,0.3);
+      color: #00c87a;
+      display: block;
+    }
+
+    .status.error {
+      background: rgba(239,68,68,0.12);
+      border: 1px solid rgba(239,68,68,0.3);
+      color: #ef4444;
+      display: block;
+    }
+
+    .warning {
+      margin-top: 20px;
+      padding: 12px 16px;
+      border-radius: 12px;
+      background: rgba(245,158,11,0.08);
+      border: 1px solid rgba(245,158,11,0.2);
+      font-size: 12px;
+      color: #f59e0b;
+      line-height: 1.6;
+    }
+
+    .warning strong { color: #fbbf24; }
+
+    .divider {
+      border: none;
+      border-top: 1px solid rgba(255,255,255,0.07);
+      margin: 24px 0;
+    }
+
+    .current-status {
+      font-size: 12px;
+      color: #6b7280;
+      text-align: center;
+      margin-top: 16px;
+    }
+
+    .dot {
+      display: inline-block;
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      margin-right: 5px;
+      background: #6b7280;
+    }
+
+    .dot.green { background: #00c87a; }
+    .dot.red   { background: #ef4444; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div class="logo">Aurora</div>
+  <h2>Save Gemini API Key Securely</h2>
+  <p class="subtitle">
+    This stores your key in Firebase (Firestore) — not in any file that gets pushed to GitHub.
+    Run this page once locally whenever you get a new key.
+  </p>
+
+  <div class="step">
+    <span class="step-num">1</span>
+    Go to <a href="https://aistudio.google.com" target="_blank">aistudio.google.com</a>
+    → <strong>Get API Key</strong> → <strong>Create API key</strong>
+  </div>
+  <div class="step">
+    <span class="step-num">2</span>
+    Paste the key below and click <strong>Save to Firebase</strong>
+  </div>
+  <div class="step">
+    <span class="step-num">3</span>
+    Done — works on <strong>local</strong> and <strong>GitHub hosted</strong> automatically
+  </div>
+
+  <div class="warning">
+    ⚠ <strong>Never paste your key into config.js if config.js is on GitHub.</strong>
+    Keys in public repos get auto-revoked by Google within minutes.
+    This page saves it safely in your private Firestore database instead.
+  </div>
+
+  <hr class="divider">
+
+  <div class="input-wrap">
+    <label>Your Gemini API Key</label>
+    <input
+      type="password"
+      id="keyInput"
+      placeholder="AIzaSy…"
+      autocomplete="off"
+      spellcheck="false"
+    >
+    <button class="save-btn" id="saveBtn" onclick="saveKey()">
+      Save to Firebase ✓
+    </button>
+  </div>
+
+  <div id="status" class="status"></div>
+
+  <div class="current-status" id="currentStatus">
+    <span class="dot" id="statusDot"></span>
+    <span id="statusText">Checking current key…</span>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  // ── Your Firebase config (same as firebaseConfig.js) ──
+  const firebaseConfig = {
+    apiKey: "AIzaSyC0bjEzbyPRQhRUuAClNWn0_x4fqF_GkWk",
+    authDomain: "aurora-1c8c6.firebaseapp.com",
+    projectId: "aurora-1c8c6",
+    storageBucket: "aurora-1c8c6.firebasestorage.app",
+    messagingSenderId: "491871370694",
+    appId: "1:491871370694:web:6959da496d4fbf566fc6c7"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db  = getFirestore(app);
+
+  // Check if a key already exists
+  async function checkExisting() {
+    const dot  = document.getElementById("statusDot");
+    const text = document.getElementById("statusText");
+    try {
+      const snap = await getDoc(doc(db, "appConfig", "gemini"));
+      if (snap.exists() && snap.data().key) {
+        const key     = snap.data().key;
+        const masked  = key.slice(0, 8) + "…" + key.slice(-4);
+        const updated = snap.data().updatedAt
+          ? new Date(snap.data().updatedAt).toLocaleDateString()
+          : "unknown date";
+        dot.className  = "dot green";
+        text.textContent = `Key saved: ${masked} (saved ${updated})`;
+      } else {
+        dot.className  = "dot red";
+        text.textContent = "No key saved yet — paste one above";
+      }
+    } catch(e) {
+      dot.className  = "dot red";
+      text.textContent = "Could not connect to Firebase";
+    }
+  }
+
+  window.saveKey = async function() {
+    const input  = document.getElementById("keyInput");
+    const btn    = document.getElementById("saveBtn");
+    const status = document.getElementById("status");
+    const key    = input.value.trim();
+
+    status.className = "status";
+    status.textContent = "";
+
+    if (!key || key.length < 20) {
+      status.className = "status error";
+      status.textContent = "⚠ That doesn't look like a valid API key. It should start with AIzaSy…";
+      return;
+    }
+
+    if (!key.startsWith("AIza")) {
+      status.className = "status error";
+      status.textContent = "⚠ Gemini API keys start with 'AIza'. Double-check you copied the full key.";
+      return;
+    }
+
+    btn.disabled    = true;
+    btn.textContent = "Saving…";
+
+    try {
+      // Quick test: try calling Gemini with this key before saving
+      const testRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${key}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contents: [{ parts: [{ text: "Hi" }] }], generationConfig: { maxOutputTokens: 5 } })
+        }
+      );
+
+      if (testRes.status === 403) {
+        status.className = "status error";
+        status.textContent = "⚠ Key rejected by Google (403). This key is invalid or already revoked. Get a fresh one at aistudio.google.com";
+        btn.disabled = false; btn.textContent = "Save to Firebase ✓";
+        return;
+      }
+
+      // Save to Firestore (even if quota hit — 429 is fine, key is valid)
+      await setDoc(doc(db, "appConfig", "gemini"), {
+        key,
+        updatedAt: new Date().toISOString()
+      });
+
+      input.value = "";
+      status.className = "status success";
+      status.textContent = "✓ Key saved to Firebase! Your app will use it automatically on all devices.";
+      checkExisting();
+
+    } catch(e) {
+      status.className = "status error";
+      status.textContent = "⚠ Error: " + e.message;
+    }
+
+    btn.disabled    = false;
+    btn.textContent = "Save to Firebase ✓";
+  };
+
+  // Allow Enter key to submit
+  document.getElementById("keyInput").addEventListener("keydown", e => {
+    if (e.key === "Enter") window.saveKey();
+  });
+
+  checkExisting();
+</script>
+
+</body>
+</html>

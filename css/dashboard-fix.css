@@ -1,0 +1,301 @@
+/* ================================================================
+   DASHBOARD — DEFINITIVE STYLES (highest specificity, overrides all)
+   ================================================================ */
+
+.dashboard-container {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 14px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* ═══════════════════════════════════════════
+   5 STAT CARDS — uniform compact row
+═══════════════════════════════════════════ */
+.dash-stats {
+  display: grid !important;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  gap: 12px !important;
+  width: 100% !important;
+}
+
+.stat-card {
+  background: var(--surface) !important;
+  border: 1.5px solid var(--border) !important;
+  border-radius: 16px !important;
+  padding: 18px 12px 14px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  text-align: center !important;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.04) !important;
+  min-height: 0 !important;
+  height: auto !important;
+  width: auto !important;
+  max-width: 100% !important;
+  transition: transform 0.18s, box-shadow 0.18s !important;
+}
+.stat-card:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.08) !important;
+}
+body.dark .stat-card {
+  background: #1c2740 !important;
+  border-color: rgba(255,255,255,0.07) !important;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.28) !important;
+}
+
+.stat-card h4 {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 1px !important;
+  text-transform: uppercase !important;
+  color: var(--muted) !important;
+  margin: 0 !important;
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+}
+.stat-value {
+  font-size: 30px !important;
+  font-weight: 800 !important;
+  color: var(--accent) !important;
+  line-height: 1 !important;
+  letter-spacing: -1px !important;
+  margin: 0 !important;
+}
+.stat-warn .stat-value { color: #ef4444 !important; }
+
+/* ═══════════════════════════════════════════
+   CHART CARD BASE — shared across all sections
+═══════════════════════════════════════════ */
+.chart-card {
+  background: var(--surface) !important;
+  border: 1.5px solid var(--border) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.04) !important;
+}
+body.dark .chart-card {
+  background: #1c2740 !important;
+  border-color: rgba(255,255,255,0.07) !important;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.28) !important;
+}
+.card-title, .chart-card h3 {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.8px !important;
+  text-transform: uppercase !important;
+  color: var(--text) !important;
+  margin: 0 0 12px !important;
+  flex-shrink: 0 !important;
+}
+
+/* ═══════════════════════════════════════════
+   2-COL CHART SECTION (bar + doughnut)
+═══════════════════════════════════════════ */
+.dash-charts {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 12px !important;
+  width: 100% !important;
+}
+.dash-charts .chart-card {
+  padding: 16px 18px !important;
+  height: 230px !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+}
+.dash-charts .chart-card canvas {
+  flex: 1 !important;
+  width: 100% !important;
+  min-height: 0 !important;
+  max-height: 170px !important;
+}
+
+/* ═══════════════════════════════════════════
+   TOP TASKS + DEADLINES (2-col, auto height)
+═══════════════════════════════════════════ */
+.dash-two-col {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 12px !important;
+  width: 100% !important;
+}
+.dash-two-col .chart-card {
+  padding: 16px 18px !important;
+  height: auto !important;
+  min-height: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* ═══════════════════════════════════════════
+   BOTTOM ROW — ring + 2 mini stats + type chart
+   All start-aligned, no stretch
+═══════════════════════════════════════════ */
+.dash-bottom {
+  display: grid !important;
+  grid-template-columns: 96px 96px 96px 1fr !important;
+  gap: 12px !important;
+  width: 100% !important;
+  align-items: start !important;
+}
+
+/* The 3 small stat cards in bottom row */
+.dash-bottom .stat-card {
+  padding: 14px 10px 12px !important;
+  min-width: 0 !important;
+}
+
+/* The type chart card */
+.dash-bottom .chart-card {
+  padding: 14px 16px !important;
+  height: auto !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+}
+.dash-bottom .chart-card canvas {
+  width: 100% !important;
+  height: 80px !important;
+  max-height: 80px !important;
+  min-height: 80px !important;
+}
+
+/* ═══════════════════════════════════════════
+   WEEKLY RING
+═══════════════════════════════════════════ */
+.dash-ring-wrap {
+  position: relative !important;
+  width: 58px !important;
+  height: 58px !important;
+  margin: 4px auto 0 !important;
+}
+.dash-ring-svg {
+  width: 100% !important;
+  height: 100% !important;
+  transform: rotate(-90deg) !important;
+}
+.dash-ring-bg   { fill: none; stroke: rgba(0,0,0,0.08); stroke-width: 5; }
+body.dark .dash-ring-bg { stroke: rgba(255,255,255,0.08); }
+.dash-ring-fill { fill: none; stroke-width: 5; stroke-linecap: round; stroke: var(--accent); transition: stroke-dashoffset 0.8s ease; }
+.dash-ring-label {
+  position: absolute !important;
+  inset: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  color: var(--accent) !important;
+}
+
+/* ═══════════════════════════════════════════
+   TASK LIST ITEMS
+═══════════════════════════════════════════ */
+.dash-task-item {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 10px !important;
+  padding: 8px 0 !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+.dash-task-item:last-child { border-bottom: none !important; }
+.dash-task-dot {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  flex-shrink: 0 !important;
+  margin-top: 4px !important;
+}
+.dash-task-info { flex: 1 !important; min-width: 0 !important; }
+
+/* Light: solid readable text. Dark: aurora gradient */
+.dash-task-title {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  color: var(--text) !important;
+  background: none !important;
+  -webkit-background-clip: unset !important;
+  background-clip: unset !important;
+  -webkit-text-fill-color: unset !important;
+}
+body.dark .dash-task-title {
+  background: linear-gradient(90deg, var(--accent), var(--accent2, #00d9f5)) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  color: transparent !important;
+}
+.dash-task-meta {
+  font-size: 11px !important;
+  color: var(--muted) !important;
+  margin-top: 2px !important;
+}
+
+/* ═══════════════════════════════════════════
+   DEADLINE LIST
+═══════════════════════════════════════════ */
+.deadline-list { list-style: none !important; margin: 0 !important; padding: 0 !important; }
+.deadline-item {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 8px 0 !important;
+  border-bottom: 1px solid var(--border) !important;
+  gap: 8px !important;
+}
+.deadline-item:last-child { border-bottom: none !important; }
+.deadline-name {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  flex: 1 !important;
+  color: var(--text) !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+.deadline-when {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  flex-shrink: 0 !important;
+  color: var(--accent) !important;
+  background: rgba(0,200,122,0.08) !important;
+  padding: 2px 9px !important;
+  border-radius: 20px !important;
+  white-space: nowrap !important;
+}
+.deadline-overdue { color: #ef4444 !important; background: rgba(239,68,68,0.08) !important; }
+.deadline-today   { color: #f59e0b !important; background: rgba(245,158,11,0.08) !important; }
+
+/* Misc */
+.dash-empty   { font-size: 13px !important; color: var(--muted) !important; padding: 14px 0 !important; text-align: center !important; }
+.dash-loading { font-size: 14px !important; color: var(--muted) !important; padding: 40px !important; text-align: center !important; }
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════════ */
+@media (max-width: 1100px) {
+  .dash-stats { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+  .dash-bottom { grid-template-columns: 1fr 1fr 1fr !important; }
+  .dash-bottom .chart-card { grid-column: 1 / -1 !important; }
+  .dash-bottom .chart-card canvas { height: 100px !important; max-height: 100px !important; min-height: 100px !important; }
+}
+@media (max-width: 720px) {
+  .dash-stats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .dash-charts, .dash-two-col { grid-template-columns: 1fr !important; }
+  .dash-charts .chart-card { height: 210px !important; }
+  .dash-bottom { grid-template-columns: 1fr 1fr !important; }
+}
+@media (max-width: 420px) {
+  .dash-stats { grid-template-columns: 1fr !important; }
+}

@@ -1,0 +1,96 @@
+/* ================================================================
+   AURORA ACCENT COLOR SYSTEM
+   Default: green | Options: white, blue, purple, amber
+   Only shows in dark mode sidebar
+   ================================================================ */
+
+/* ── Defaults (green) ── */
+:root {
+  --accent:         #00c87a;
+  --accent2:        #00d9f5;
+  --accent-glow:    rgba(0,200,122,0.35);
+  --accent-subtle:  rgba(0,200,122,0.08);
+  --accent-border:  rgba(0,200,122,0.25);
+  --grad-accent:    linear-gradient(135deg, #00f5a0, #00d9f5);
+}
+
+/* Aurora White */
+body.theme-white {
+  --accent:         #cbd5e1;
+  --accent2:        #94a3b8;
+  --accent-glow:    rgba(203,213,225,0.25);
+  --accent-subtle:  rgba(203,213,225,0.08);
+  --accent-border:  rgba(203,213,225,0.2);
+  --grad-accent:    linear-gradient(135deg, #f1f5f9, #94a3b8);
+}
+
+/* Aurora Blue */
+body.theme-blue {
+  --accent:         #38bdf8;
+  --accent2:        #818cf8;
+  --accent-glow:    rgba(56,189,248,0.35);
+  --accent-subtle:  rgba(56,189,248,0.08);
+  --accent-border:  rgba(56,189,248,0.25);
+  --grad-accent:    linear-gradient(135deg, #38bdf8, #818cf8);
+}
+
+/* Aurora Purple */
+body.theme-purple {
+  --accent:         #a78bfa;
+  --accent2:        #f472b6;
+  --accent-glow:    rgba(167,139,250,0.35);
+  --accent-subtle:  rgba(167,139,250,0.08);
+  --accent-border:  rgba(167,139,250,0.25);
+  --grad-accent:    linear-gradient(135deg, #a78bfa, #f472b6);
+}
+
+/* Aurora Amber */
+body.theme-amber {
+  --accent:         #f59e0b;
+  --accent2:        #f97316;
+  --accent-glow:    rgba(245,158,11,0.35);
+  --accent-subtle:  rgba(245,158,11,0.08);
+  --accent-border:  rgba(245,158,11,0.25);
+  --grad-accent:    linear-gradient(135deg, #f59e0b, #f97316);
+}
+
+/* ── Theme picker widget (in dark sidebar) ── */
+.aurora-accent-picker {
+  display: none;  /* hidden in light mode */
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px 4px;
+  margin-bottom: 2px;
+}
+body.dark .aurora-accent-picker { display: flex; }
+
+.aap-label {
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.25);
+  white-space: nowrap;
+}
+.aap-swatches {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.aap-swatch {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s;
+  flex-shrink: 0;
+}
+.aap-swatch:hover { transform: scale(1.25); }
+.aap-swatch.active {
+  border-color: rgba(255,255,255,0.7);
+  box-shadow: 0 0 8px rgba(255,255,255,0.25);
+}
+.aap-green  { background: linear-gradient(135deg,#00f5a0,#00d9f5); }
+.aap-white  { background: linear-gradient(135deg,#f1f5f9,#94a3b8); }
+.aap-blue   { background: linear-gradient(135deg,#38bdf8,#818cf8); }
+.aap-purple { background: linear-gradient(135deg,#a78bfa,#f472b6); }
+.aap-amber  { background: linear-gradient(135deg,#f59e0b,#f97316); }
