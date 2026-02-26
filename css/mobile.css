@@ -76,11 +76,8 @@
   /* ── TOPBAR: hamburger left | title center | toggle right ──── */
   .topbar {
     position: relative !important;
-    padding: 0 16px !important;
+    padding: 14px 16px !important;
     min-height: 56px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: space-between !important;
   }
   #pageTitle {
     position: absolute !important;
@@ -148,7 +145,7 @@
   /* ── TOPBAR ──────────────────────────────────────────────────── */
   .topbar {
     position: relative !important;
-    padding: 0 14px !important;
+    padding: 12px 16px !important;
     min-height: 52px !important;
   }
   #pageTitle {

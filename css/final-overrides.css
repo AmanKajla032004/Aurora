@@ -1950,26 +1950,38 @@ body.dark .priority-pill {
 /* ═══════════════════════════════════════════════════════════════
    WHISPER BUTTONS — fix dark hover override from components.css
 ═══════════════════════════════════════════════════════════════ */
-.whisper-btn-primary {
+/* Whisper buttons — override components.css dark hover */
+.whisper-hero-btns .whisper-btn-primary,
+.whisper-btn.whisper-btn-primary {
   background: linear-gradient(135deg, #00f5a0, #00d9f5) !important;
   color: #060f1e !important;
   border: none !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  padding: 13px 26px !important;
 }
-.whisper-btn-primary:hover {
+.whisper-hero-btns .whisper-btn-primary:hover,
+.whisper-btn.whisper-btn-primary:hover {
   background: linear-gradient(135deg, #00f5a0, #00d9f5) !important;
   transform: translateY(-3px) !important;
   box-shadow: 0 10px 30px rgba(0,200,122,0.4) !important;
   color: #060f1e !important;
+  border-color: transparent !important;
 }
-.whisper-btn-ghost {
+.whisper-hero-btns .whisper-btn-ghost,
+.whisper-btn.whisper-btn-ghost {
   background: transparent !important;
   border: 1.5px solid rgba(255,255,255,0.18) !important;
   color: rgba(255,255,255,0.7) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  padding: 13px 26px !important;
 }
-.whisper-btn-ghost:hover {
+.whisper-hero-btns .whisper-btn-ghost:hover,
+.whisper-btn.whisper-btn-ghost:hover {
   background: rgba(255,255,255,0.05) !important;
   border-color: rgba(255,255,255,0.5) !important;
   color: white !important;
   transform: translateY(-2px) !important;
-  box-shadow: none !important;
+  box-shadow: 0 0 20px rgba(255,255,255,0.05) !important;
 }
