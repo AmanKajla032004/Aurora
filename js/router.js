@@ -14,10 +14,8 @@ import { renderFriends, initFriends } from "./views/friendsView.js";
 export let currentRoute = "home";
 let activeRoute = null;
 
-// Run missed report check on every app load (background, silent)
-if (typeof checkAndGenerateMissedReports === "function") {
-  checkAndGenerateMissedReports();
-}
+// Run on every app load — silently generates missed reports in background
+setTimeout(() => checkAndGenerateMissedReports(), 3000);
 
 export async function navigate(route) {
   if (activeRoute === "whisper") destroyWhisper();
@@ -53,6 +51,7 @@ export async function navigate(route) {
     rooms:      { title: "Focus Rooms",   render: renderFocusRooms,  init: initFocusRooms },
     swot:       { title: "SWOT Analysis", render: renderSwot,        init: initSwotLogic },
     report:     { title: "Daily Report",  render: renderReport,      init: initReport },
+    friends:    { title: "Friends",       render: renderFriends,     init: initFriends },
   };
 
   const r = routes[route];

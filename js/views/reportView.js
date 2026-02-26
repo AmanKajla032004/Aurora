@@ -538,6 +538,8 @@ function todayKey() {
 }
 
 // ─── Past Reports history view ────────────────────────────────
+let historyFilter = "all"; // current filter tab
+
 function getAllStoredReports() {
   const reports = [];
   const periodLabels = { day:"Daily", week:"Weekly", month:"Monthly", swot:"SWOT" };
@@ -546,18 +548,27 @@ function getAllStoredReports() {
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
     if (!key || !key.startsWith("aurora_report_")) continue;
-    // key format: aurora_report_{period}_{year}-{month}-{day}
     const parts = key.replace("aurora_report_", "").split("_");
     if (parts.length < 2) continue;
     const period  = parts[0];
-    const dateKey = parts[1]; // "2024-3-15" format
+    const dk      = parts[1]; // YYYYMMDD or YYYY-M-D (legacy)
     try {
       const raw  = localStorage.getItem(key);
       const data = JSON.parse(raw);
       if (!data || !data.html) continue;
-      // Reconstruct readable date from key
-      const [yr, mo, dy] = dateKey.split("-").map(Number);
-      const date = new Date(yr, mo, dy);
+
+      // Parse both YYYYMMDD (new) and YYYY-M-D (old) formats
+      let date;
+      if (dk.includes("-")) {
+        const [yr, mo, dy] = dk.split("-").map(Number);
+        date = new Date(yr, mo, dy); // old format had month already 0-based bug, keep as-is
+      } else {
+        const yr = parseInt(dk.slice(0,4));
+        const mo = parseInt(dk.slice(4,6)) - 1; // 0-based
+        const dy = parseInt(dk.slice(6,8));
+        date = new Date(yr, mo, dy);
+      }
+
       reports.push({
         key, period, date, data,
         label: periodLabels[period] || period,
@@ -566,7 +577,6 @@ function getAllStoredReports() {
     } catch {}
   }
 
-  // Sort newest first
   reports.sort((a, b) => b.date - a.date);
   return reports;
 }
@@ -575,43 +585,60 @@ function renderPastReports() {
   const container = document.getElementById("reportContent");
   if (!container) return;
 
-  const reports = getAllStoredReports();
+  const allReports = getAllStoredReports();
 
-  if (reports.length === 0) {
+  if (allReports.length === 0) {
     container.innerHTML = `
       <div class="report-empty">
         <div style="font-size:44px;margin-bottom:12px">🗂</div>
         <div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:8px">No past reports yet</div>
         <div style="font-size:13px;color:var(--muted);line-height:1.7">
-          Generate reports from Today, Week, Month or SWOT tabs.<br>
-          They'll appear here automatically, grouped by type.
+          Reports are auto-generated at end of each day, week and month.<br>
+          You can also generate them manually from Today / Week / Month tabs.
         </div>
       </div>`;
     return;
   }
 
-  // Group by period
+  const periodOrder  = ["day", "week", "month", "swot"];
+  const periodTitles = { day:"Daily Reports", week:"Weekly Reports", month:"Monthly Reports", swot:"SWOT Reports" };
+  const periodIcons  = { day:"📅", week:"📆", month:"🗓", swot:"⚡" };
+
+  // Count per period for filter badges
+  const counts = { all: allReports.length };
+  periodOrder.forEach(p => { counts[p] = allReports.filter(r => r.period === p).length; });
+
+  // Filter tabs HTML
+  const filterTabs = `
+    <div class="report-hist-filters" id="reportHistFilters">
+      ${[{id:"all",icon:"🗂",label:"All"}, {id:"day",icon:"📅",label:"Daily"}, {id:"week",icon:"📆",label:"Weekly"}, {id:"month",icon:"🗓",label:"Monthly"}, {id:"swot",icon:"⚡",label:"SWOT"}]
+        .filter(f => counts[f.id] > 0)
+        .map(f => `<button class="report-hist-filter-btn${historyFilter===f.id?" active":""}" data-filter="${f.id}">
+          ${f.icon} ${f.label} <span class="report-hist-filter-count">${counts[f.id]}</span>
+        </button>`).join("")}
+    </div>`;
+
+  // Filter reports
+  const reports = historyFilter === "all" ? allReports : allReports.filter(r => r.period === historyFilter);
+
+  // Group by period (respects filter)
   const groups = {};
   reports.forEach(r => {
     if (!groups[r.period]) groups[r.period] = [];
     groups[r.period].push(r);
   });
 
-  const periodOrder = ["day", "week", "month", "swot"];
-  const periodTitles = { day:"Daily Reports", week:"Weekly Reports", month:"Monthly Reports", swot:"SWOT Reports" };
-  const periodIcons  = { day:"📅", week:"📆", month:"🗓", swot:"⚡" };
-
-  let html = "";
-  periodOrder.forEach(period => {
+  let listHtml = "";
+  (historyFilter === "all" ? periodOrder : [historyFilter]).forEach(period => {
     if (!groups[period]) return;
-    html += `<div class="report-history-group">
-      <div class="report-history-group-title">${periodIcons[period]} ${periodTitles[period]||period}</div>`;
+    listHtml += `<div class="report-history-group">
+      <div class="report-history-group-title">${periodIcons[period]} ${periodTitles[period]||period} <span style="opacity:0.4;font-weight:400;font-size:12px">(${groups[period].length})</span></div>`;
     groups[period].forEach(r => {
       const dateStr = r.date.toLocaleDateString("en-US", { weekday:"short", year:"numeric", month:"short", day:"numeric" });
       const timeStr = r.data.generatedAt ? new Date(r.data.generatedAt).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}) : "";
       const hasAI   = r.data.hasAI ? '<span class="report-hist-badge">✦ AI</span>' : "";
       const isAuto  = r.data.isAuto ? '<span class="report-hist-badge report-hist-auto">auto</span>' : "";
-      html += `
+      listHtml += `
         <div class="report-history-item" data-hkey="${r.key}">
           <div class="report-hist-info">
             <div class="report-hist-title">${r.label} Report — ${dateStr}</div>
@@ -624,10 +651,18 @@ function renderPastReports() {
           </div>
         </div>`;
     });
-    html += `</div>`;
+    listHtml += `</div>`;
   });
 
-  container.innerHTML = html;
+  container.innerHTML = filterTabs + listHtml;
+
+  // Wire filter tabs
+  container.querySelectorAll(".report-hist-filter-btn").forEach(btn => {
+    btn.onclick = () => {
+      historyFilter = btn.dataset.filter;
+      renderPastReports(); // re-render with new filter
+    };
+  });
 
   // Wire up buttons
   container.querySelectorAll(".report-hist-view-btn").forEach(btn => {

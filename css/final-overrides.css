@@ -2039,3 +2039,52 @@ body.dark .priority-pill {
   }
   .delete-btn { flex: 1 !important; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   PAST REPORTS — filter tabs
+═══════════════════════════════════════════════════════════════ */
+.report-hist-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.report-hist-filter-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.18s;
+  white-space: nowrap;
+}
+.report-hist-filter-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(0,200,122,0.06);
+}
+.report-hist-filter-btn.active {
+  background: rgba(0,200,122,0.12);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+.report-hist-filter-count {
+  background: rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.report-hist-filter-btn.active .report-hist-filter-count {
+  background: rgba(0,200,122,0.2);
+}
