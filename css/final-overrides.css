@@ -221,7 +221,7 @@ body.dark #appContent .focus-task-title {
 
 
 /* ─── 5. FOCUS ROOMS ─────────────────────────────────────────── */
-.fr-room-center { position:relative !important; z-index:10 !important; display:flex !important; flex-direction:column !important; align-items:center !important; justify-content:center !important; gap:22px !important; flex:1 !important; padding:20px 200px 60px 20px !important; text-align:center !important; }
+.fr-room-center { position:relative !important; z-index:10 !important; display:flex !important; flex-direction:column !important; align-items:center !important; justify-content:center !important; gap:22px !important; flex:1 !important; padding:20px 200px 20px 20px !important; text-align:center !important; }
 .fr-timer { font-size:80px !important; font-weight:100 !important; line-height:1 !important; letter-spacing:-5px !important; color:white !important; text-shadow:0 0 50px rgba(0,245,160,0.3) !important; font-variant-numeric:tabular-nums !important; }
 .fr-timer-sub { font-size:11px !important; letter-spacing:3px !important; text-transform:uppercase !important; color:rgba(255,255,255,0.28) !important; margin-top:10px !important; }
 .fr-aura-field { position:absolute !important; z-index:5 !important; bottom:60px !important; left:20px !important; right:170px !important; top:auto !important; display:flex !important; align-items:flex-end !important; flex-wrap:wrap !important; gap:22px !important; padding:10px !important; pointer-events:none !important; }
@@ -1920,41 +1920,4 @@ body.dark .priority-pill {
   padding: 32px 20px;
   color: var(--muted);
   font-size: 13px;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   FOCUS ROOMS — Center alignment fix
-═══════════════════════════════════════════════════════════════ */
-.fr-room {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: stretch !important;
-}
-
-.fr-room-center {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  justify-content: center !important;
-  flex: 1 !important;
-  text-align: center !important;
-  padding: 20px 200px 60px 20px !important;
-  position: relative !important;
-  z-index: 10 !important;
-  gap: 20px !important;
-}
-
-.fr-timer-block {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  text-align: center !important;
-}
-
-.fr-room-controls {
-  display: flex !important;
-  gap: 12px !important;
-  align-items: center !important;
-  justify-content: center !important;
-  flex-wrap: wrap !important;
 }
