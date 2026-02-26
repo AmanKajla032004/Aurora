@@ -183,7 +183,18 @@ function renderSections() {
   const activeDaily   = sortTasks(allTasks.filter(t=>(t.type==="daily"||t.type==="once")&&!t.completed));
   const activeWeekly  = sortTasks(allTasks.filter(t=>t.type==="weekly"&&!t.completed));
   const activeCustom  = sortTasks(allTasks.filter(t=>t.type==="custom"&&!t.completed));
-  const activeMissed  = sortTasks(allTasks.filter(t=>!t.completed&&t.dueDate&&new Date(t.dueDate)<now));
+  const activeMissed  = sortTasks(allTasks.filter(t => {
+    if (t.completed || !t.dueDate) return false;
+    // Build deadline: if time set, use exact datetime; else end of that day (23:59:59)
+    let deadline;
+    if (t.dueTime) {
+      deadline = new Date(t.dueDate + "T" + t.dueTime);
+    } else {
+      deadline = new Date(t.dueDate);
+      deadline.setHours(23, 59, 59, 999); // end of day — not midnight UTC
+    }
+    return deadline < now;
+  }));
   let completedTasks = [];
   if (completedFilter) {
     completedTasks = sortTasks(allTasks.filter(t=>{
@@ -227,8 +238,8 @@ function renderTaskItem(task, isCompleted=false) {
     <div class="task-item ${isCompleted?"task-completed":""}" data-id="${task.id}" draggable="${!isCompleted}">
       <div class="drag-handle">⠿</div>
       <div class="task-priority-stripe" style="background:${color}"></div>
-      <div class="task-body">
-        <div class="task-content">
+      <div class="task-left">
+        <div style="flex:1;min-width:0">
           <div class="task-title ${isCompleted?"strikethrough":""}">${task.title}</div>
           ${task.description?`<div class="task-desc">${task.description}</div>`:""}
           <div class="task-meta">
@@ -248,13 +259,10 @@ function renderTaskItem(task, isCompleted=false) {
                 <span>${s.title}</span>
               </label>`).join("")}</div>`:""}
         </div>
-        <div class="task-actions">
-          ${!isCompleted?`
-            <button data-complete="${task.id}" class="task-done-btn" title="Complete">✓ Done</button>
-            <button data-edit="${task.id}" class="task-edit-btn" title="Edit">✎ Edit</button>
-          `:""}
-          <button data-delete="${task.id}" class="task-delete-btn" title="Delete">✕</button>
-        </div>
+      </div>
+      <div class="task-actions">
+        ${!isCompleted?`<button data-complete="${task.id}" class="complete-btn">✓</button><button data-edit="${task.id}" class="edit-btn">✎</button>`:""}
+        <button data-delete="${task.id}" class="delete-btn">✕</button>
       </div>
     </div>`;
 }
@@ -472,7 +480,7 @@ function setupEvents() {
   // ── AI Task Breakdown ──────────────────────────────────────────
   document.getElementById("aiBreakdownBtn").onclick = async () => {
     const titleEl  = document.getElementById("taskTitle");
-    const descEl   = document.getElementById("taskDesc");
+    const descEl   = document.getElementById("taskDescription");
     const resultEl = document.getElementById("aiBreakdownResult");
     const btn      = document.getElementById("aiBreakdownBtn");
 
@@ -485,10 +493,21 @@ function setupEvents() {
     resultEl.textContent = "Breaking down your task…";
 
     try {
-      const prompt = `Break down this task into 3-6 clear actionable subtasks.
-Task: ${title}${descEl?.value.trim() ? "\nDescription: " + descEl.value.trim() : ""}
-Return a JSON array of strings only. Example: ["Research options", "Write draft", "Review"]`;
-      const subtasks = await askGeminiJSON(prompt, 300);
+      const desc = descEl?.value.trim();
+      const type = document.getElementById("taskType")?.value || "once";
+      const prompt = `You are a productivity assistant. Break down this task into 3-6 clear, actionable subtasks.
+
+Task title: ${title}
+Task type: ${type}${desc ? "\nDescription/context: " + desc : ""}
+
+Rules:
+- Each subtask should start with an action verb (Research, Write, Set up, Test, Review, etc.)
+- Order them logically from first step to last step
+- Be specific to the task, not generic
+- If description is provided, use it to make subtasks more relevant
+
+Return ONLY a JSON array of strings. Example: ["Research options", "Write first draft", "Review and edit"]`;
+      const subtasks = await askGeminiJSON(prompt, 400);
 
       if (Array.isArray(subtasks) && subtasks.length) {
         // Add to pending subtasks
@@ -544,9 +563,8 @@ Return a JSON array of strings only. Example: ["Research options", "Write draft"
 
   document.addEventListener("click", async e => {
     // Delete task
-    const delBtn = e.target.closest("[data-delete]");
-    if (delBtn) {
-      const id = delBtn.dataset.delete;
+    if (e.target.dataset.delete) {
+      const id = e.target.dataset.delete;
       // Optimistic: remove from DOM and local array immediately
       const el = document.querySelector(`.task-item[data-id="${id}"]`);
       if (el) { el.style.opacity="0"; el.style.transform="scale(0.96)"; el.style.transition="all 0.18s"; setTimeout(()=>el.remove(),180); }
@@ -557,9 +575,8 @@ Return a JSON array of strings only. Example: ["Research options", "Write draft"
     }
 
     // Complete task — optimistic in-place update, NO full re-render
-    const doneBtn = e.target.closest("[data-complete]");
-    if (doneBtn) {
-      const id = doneBtn.dataset.complete;
+    if (e.target.dataset.complete) {
+      const id = e.target.dataset.complete;
       const task = allTasks.find(t => t.id === id);
       if (!task) return;
 
@@ -588,9 +605,8 @@ Return a JSON array of strings only. Example: ["Research options", "Write draft"
       return;
     }
 
-    const editBtn = e.target.closest("[data-edit]");
-    if (editBtn) {
-      const t = allTasks.find(t => t.id === editBtn.dataset.edit);
+    if (e.target.dataset.edit) {
+      const t = allTasks.find(t => t.id === e.target.dataset.edit);
       if (t) openModal(t);
     }
   });
