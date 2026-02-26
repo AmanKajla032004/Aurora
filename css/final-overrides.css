@@ -2752,3 +2752,103 @@ body.dark .fr-request-item { background: #1c2740; }
   .fr-friend-actions { flex-direction: column; }
   .analytics-ai-header { flex-direction: column; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   WELLBEING TRENDS — per-metric chart cards
+═══════════════════════════════════════════════════════════════ */
+.wb-trend-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.wb-summary-pill {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 14px; border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.08);
+  font-size: 13px;
+  flex: 1; min-width: 100px; justify-content: center;
+}
+
+.wb-trend-charts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.wb-trend-card {
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 16px;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+body.dark .wb-trend-card { background: #1c2740; }
+
+.wb-trend-card-header {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 12px;
+}
+.wb-trend-icon { font-size: 16px; }
+.wb-trend-label {
+  font-size: 13px; font-weight: 700; color: var(--text);
+  flex: 1;
+}
+.wb-trend-avg {
+  font-size: 16px; font-weight: 800; color: var(--accent);
+}
+
+.wb-trend-chart-wrap {
+  position: relative;
+  height: 100px;
+}
+.wb-trend-chart-wrap canvas {
+  display: block !important;
+  width: 100% !important;
+  height: 100px !important;
+}
+
+.wb-trend-scale {
+  font-size: 10px; color: var(--muted); margin-top: 6px;
+  opacity: 0.6;
+}
+
+@media (max-width: 500px) {
+  .wb-trend-charts { grid-template-columns: 1fr; }
+  .wb-summary-pill { min-width: 80px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ANALYTICS HEATMAP — proper display on all screens
+═══════════════════════════════════════════════════════════════ */
+.heatmap-grid {
+  display: grid !important;
+  grid-template-rows: repeat(7, 11px) !important;
+  grid-auto-flow: column !important;
+  gap: 3px !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  padding-bottom: 4px !important;
+  min-height: 95px;
+  /* Ensure it actually renders by giving it width */
+  width: 100% !important;
+}
+.heat-cell {
+  width: 11px !important;
+  height: 11px !important;
+  border-radius: 2px !important;
+  flex-shrink: 0 !important;
+  cursor: default;
+  transition: transform 0.1s;
+}
+.heat-cell:hover { transform: scale(1.4); z-index: 1; position: relative; }
+.heat-today {
+  outline: 2px solid rgba(255,255,255,0.6) !important;
+  outline-offset: 1px;
+}
+.heatmap-legend {
+  display: flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  margin-top: 8px !important;
+  justify-content: flex-end;
+}

@@ -206,7 +206,40 @@ export async function initAnalytics() {
       <div class="am-val">${val}</div>
     </div>`).join("");
 
-    // ---- 30-day trend ----
+    // ---- HEATMAP ----
+  const heatmap = document.getElementById("heatmapGrid");
+  if (heatmap) {
+    const completionMap = {};
+    tasks.filter(t => t.completed && t.completedAt).forEach(t => {
+      const d = new Date(t.completedAt.seconds ? t.completedAt.seconds*1000 : t.completedAt);
+      completionMap[localDate(d)] = (completionMap[localDate(d)] || 0) + 1;
+    });
+    const maxCount = Math.max(1, ...Object.values(completionMap));
+
+    // Build 12 weeks (84 days) of cells, 7 rows (days) × 12 cols (weeks)
+    // Grid auto-flows column, so push day0..day6 for each week
+    const cells = [];
+    // Day-of-week labels (Sun=0..Sat=6)
+    const dayAbbr = ["S","M","T","W","T","F","S"];
+
+    for (let w = 11; w >= 0; w--) {
+      for (let day = 0; day < 7; day++) {
+        const d = new Date(now);
+        d.setDate(now.getDate() - w*7 - (now.getDay() - day));
+        const key = localDate(d);
+        const cnt = completionMap[key] || 0;
+        const intensity = cnt / maxCount;
+        const emptyBg = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.07)";
+        const bg = cnt === 0 ? emptyBg : `rgba(0,200,122,${(0.2 + intensity * 0.8).toFixed(2)})`;
+        const isToday = key === localDate(now);
+        cells.push(`<div class="heat-cell${isToday?" heat-today":""}" style="background:${bg}" title="${d.toLocaleDateString("en-US",{month:"short",day:"numeric"})}: ${cnt} task${cnt!==1?"s":""} completed"></div>`);
+      }
+    }
+    heatmap.innerHTML = cells.join("");
+    // CSS in analytics-fix.css handles grid-template-rows:7 + grid-auto-flow:column
+  }
+
+  // ---- 30-day trend ----
   const days30 = Array.from({length:30},(_,i)=>{ const d=new Date(now); d.setDate(now.getDate()-29+i); return d; });
   const doneByDay = days30.map(d => tasks.filter(t => t.completed && t.completedAt && localDate(new Date(t.completedAt.seconds ? t.completedAt.seconds*1000 : t.completedAt)) === localDate(d)).length);
   const createdByDay = days30.map(d => tasks.filter(t => t.createdAt && localDate(new Date(t.createdAt.seconds ? t.createdAt.seconds*1000 : t.createdAt)) === localDate(d)).length);

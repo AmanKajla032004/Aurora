@@ -132,16 +132,69 @@ export function renderWellbeing() {
 
   <!-- HISTORY TAB -->
   <div class="wb-tab-panel" id="wbTabHistory" style="display:none">
-    <div class="wb-history-card">
-      <div class="wb-card-title">📈 14-Day Trends</div>
-      <div style="position:relative;height:100px"><canvas id="wbMoodChart"></canvas></div>
-      <div class="wb-chart-legend">
-        <span style="color:var(--accent)">● Mood</span>
-        <span style="color:#f97316">● Energy</span>
-        <span style="color:#ef4444">● Stress</span>
+
+    <!-- Avg summary pills -->
+    <div class="wb-trend-summary" id="wbTrendSummary"></div>
+
+    <!-- Individual metric charts -->
+    <div class="wb-trend-charts">
+
+      <div class="wb-trend-card">
+        <div class="wb-trend-card-header">
+          <span class="wb-trend-icon">😊</span>
+          <span class="wb-trend-label">Mood</span>
+          <span class="wb-trend-avg" id="wbAvgMood">—</span>
+        </div>
+        <div class="wb-trend-chart-wrap">
+          <canvas id="wbChartMood"></canvas>
+        </div>
+        <div class="wb-trend-scale">1 Terrible → 7 Amazing</div>
       </div>
+
+      <div class="wb-trend-card">
+        <div class="wb-trend-card-header">
+          <span class="wb-trend-icon">⚡</span>
+          <span class="wb-trend-label">Energy</span>
+          <span class="wb-trend-avg" id="wbAvgEnergy">—</span>
+        </div>
+        <div class="wb-trend-chart-wrap">
+          <canvas id="wbChartEnergy"></canvas>
+        </div>
+        <div class="wb-trend-scale">1 Drained → 6 Energized</div>
+      </div>
+
+      <div class="wb-trend-card">
+        <div class="wb-trend-card-header">
+          <span class="wb-trend-icon">😰</span>
+          <span class="wb-trend-label">Stress</span>
+          <span class="wb-trend-avg" id="wbAvgStress">—</span>
+        </div>
+        <div class="wb-trend-chart-wrap">
+          <canvas id="wbChartStress"></canvas>
+        </div>
+        <div class="wb-trend-scale">1 Calm → 5 Overwhelmed</div>
+      </div>
+
+      <div class="wb-trend-card">
+        <div class="wb-trend-card-header">
+          <span class="wb-trend-icon">💤</span>
+          <span class="wb-trend-label">Sleep (hours)</span>
+          <span class="wb-trend-avg" id="wbAvgSleep">—</span>
+        </div>
+        <div class="wb-trend-chart-wrap">
+          <canvas id="wbChartSleep"></canvas>
+        </div>
+        <div class="wb-trend-scale">Recommended: 7–9h</div>
+      </div>
+
     </div>
-    <div id="wbHistoryList" class="wb-history-list"></div>
+
+    <!-- Day-by-day log -->
+    <div class="wb-history-card" style="margin-top:16px">
+      <div class="wb-card-title">📋 Daily Log</div>
+      <div id="wbHistoryList" class="wb-history-list"></div>
+    </div>
+
   </div>
 
 </div>`;
@@ -255,24 +308,124 @@ async function loadAndRenderHistory() {
 }
 
 function renderMoodChart(history) {
-  const canvas = document.getElementById("wbMoodChart");
-  if (!canvas) return;
-  const ctx = canvas.getContext("2d");
-  const w = canvas.offsetWidth || 600; canvas.width = w; canvas.height = 100;
-  const moods   = history.map(h=>h.mood||4);
-  const energy  = history.map(h=>h.energy||3);
-  const stress  = history.map(h=>h.stress||3);
-  const n = moods.length; const pad = 24; const xStep = (w-pad*2)/Math.max(n-1,1);
-  const drawLine = (data, color, max) => {
-    ctx.beginPath(); ctx.strokeStyle=color; ctx.lineWidth=2; ctx.lineJoin="round";
-    data.forEach((v,i)=>{ const x=pad+i*xStep; const y=90-((v/max)*75); i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
-    ctx.stroke();
-    data.forEach((v,i)=>{ const x=pad+i*xStep; const y=90-((v/max)*75); ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2); ctx.fillStyle=color; ctx.fill(); });
+  // Uses Chart.js for proper rendering — renders 4 individual metric charts
+  if (typeof Chart === "undefined") return;
+
+  const isDark   = document.body.classList.contains("dark");
+  const textCol  = isDark ? "rgba(203,213,225,0.75)" : "rgba(30,41,59,0.7)";
+  const gridCol  = isDark ? "rgba(255,255,255,0.05)"  : "rgba(0,0,0,0.05)";
+
+  const labels   = history.map(h => {
+    const d = new Date(h.date);
+    return d.toLocaleDateString("en-US", { month:"short", day:"numeric" });
+  });
+
+  const avg = arr => {
+    const v = arr.filter(x => x != null && x > 0);
+    return v.length ? (v.reduce((a,b)=>a+b,0)/v.length) : null;
   };
-  ctx.clearRect(0,0,w,100);
-  drawLine(moods,"var(--accent,#00c87a)",7);
-  drawLine(energy,"rgba(249,115,22,0.8)",6);
-  drawLine(stress,"rgba(239,68,68,0.7)",5);
+
+  const makeWbChart = (id, data, color, min, max, avgId, avgSuffix="") => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (Chart.getChart(el)) Chart.getChart(el).destroy();
+
+    const avgVal = avg(data);
+    const avgEl  = document.getElementById(avgId);
+    if (avgEl) avgEl.textContent = avgVal ? avgVal.toFixed(1) + avgSuffix : "—";
+
+    // Color-code individual points
+    const pointColors = data.map(v => {
+      if (v == null) return "transparent";
+      const pct = (v - min) / (max - min);
+      if (id === "wbChartStress") {
+        // Higher stress = worse (red)
+        if (pct > 0.7) return "#ef4444";
+        if (pct > 0.4) return "#f97316";
+        return "#22c55e";
+      } else {
+        // Higher mood/energy/sleep = better (green)
+        if (pct > 0.65) return "#00c87a";
+        if (pct > 0.35) return "#f59e0b";
+        return "#ef4444";
+      }
+    });
+
+    new Chart(el, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [{
+          data,
+          borderColor: color,
+          backgroundColor: color + "18",
+          borderWidth: 2.5,
+          fill: true,
+          tension: 0.35,
+          pointBackgroundColor: pointColors,
+          pointBorderColor: "transparent",
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          spanGaps: true,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: ctx => ` ${ctx.parsed.y ?? "—"}${avgSuffix}`
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { color: gridCol },
+            ticks: { color: textCol, font: { size: 10 }, maxTicksLimit: 7 }
+          },
+          y: {
+            grid: { color: gridCol },
+            ticks: { color: textCol, font: { size: 10 } },
+            min, max,
+            beginAtZero: false,
+          }
+        },
+        animation: { duration: 600 }
+      }
+    });
+  };
+
+  makeWbChart("wbChartMood",   history.map(h=>h.mood  ||null), "#00c87a", 1, 7, "wbAvgMood");
+  makeWbChart("wbChartEnergy", history.map(h=>h.energy||null), "#f97316", 1, 6, "wbAvgEnergy");
+  makeWbChart("wbChartStress", history.map(h=>h.stress||null), "#ef4444", 1, 5, "wbAvgStress");
+  makeWbChart("wbChartSleep",  history.map(h=>h.sleep ||null), "#00d9f5", 0, 12,"wbAvgSleep", "h");
+
+  // Summary pills
+  const summaryEl = document.getElementById("wbTrendSummary");
+  if (summaryEl) {
+    const moodAvg   = avg(history.map(h=>h.mood));
+    const energyAvg = avg(history.map(h=>h.energy));
+    const stressAvg = avg(history.map(h=>h.stress));
+    const sleepAvg  = avg(history.map(h=>h.sleep));
+
+    const pill = (icon, label, val, good) => {
+      const color = val == null ? "#94a3b8"
+        : good ? "#00c87a" : "#ef4444";
+      return `<div class="wb-summary-pill" style="border-color:${color}20;background:${color}12">
+        <span>${icon}</span>
+        <span style="color:${color};font-weight:700">${val != null ? val.toFixed(1) : "—"}</span>
+        <span style="opacity:0.6">${label}</span>
+      </div>`;
+    };
+
+    summaryEl.innerHTML =
+      pill("😊", "avg mood",   moodAvg,   moodAvg   != null && moodAvg   >= 4) +
+      pill("⚡", "avg energy", energyAvg, energyAvg != null && energyAvg >= 3.5) +
+      pill("😰", "avg stress", stressAvg, stressAvg != null && stressAvg <= 2.5) +
+      pill("💤", "avg sleep",  sleepAvg,  sleepAvg  != null && sleepAvg  >= 7);
+  }
 }
 
 function renderHistoryList(history) {

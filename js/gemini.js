@@ -1,57 +1,108 @@
-// ─── Gemini AI — Secure Key via Firestore ─────────────────────
-// Key is stored in Firestore (never in code or GitHub)
-// Run js/saveApiKey.html once locally to save your key
+// ─── Gemini AI — Multi-key rotation system ────────────────────
+// Store up to 5 API keys in Firestore under appConfig/gemini
+// Field: keys (array) or key (single string — legacy)
+// When one key hits quota, auto-rotates to the next
+// Keys reset at midnight Pacific time (Gemini quota window)
 
 import { db } from "./firebase/firebaseConfig.js";
-import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const MODELS = [
-  "gemini-2.0-flash",          // most reliable free tier
-  "gemini-2.0-flash-lite",     // fallback
-  "gemini-1.5-flash",          // stable fallback
-  "gemini-1.5-flash-8b",       // smallest/fastest fallback
+  "gemini-2.0-flash",
+  "gemini-2.0-flash-lite",
+  "gemini-1.5-flash",
+  "gemini-1.5-flash-8b",
 ];
 
 const BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
-// Cache the key in memory so we only fetch Firestore once per session
-let _cachedKey = null;
+// In-memory state
+let _keys         = [];          // all configured keys
+let _keyIndex     = 0;           // which key we're currently using
+let _exhausted    = new Set();   // indices of keys that hit quota today
+let _lastFetched  = 0;           // timestamp of last Firestore fetch
 
-async function getKey() {
-  if (_cachedKey) return _cachedKey;
+// ── Key management ─────────────────────────────────────────────
+async function loadKeys() {
+  // Re-fetch from Firestore at most once every 60s (avoid hammering)
+  if (_keys.length && Date.now() - _lastFetched < 60000) return;
 
-  // Try Firestore first (works on both local and hosted)
   try {
     const snap = await getDoc(doc(db, "appConfig", "gemini"));
-    if (snap.exists() && snap.data().key) {
-      _cachedKey = snap.data().key;
-      return _cachedKey;
+    if (!snap.exists()) return;
+    const data = snap.data();
+
+    // Support both old single-key format and new multi-key array
+    if (Array.isArray(data.keys) && data.keys.length) {
+      _keys = data.keys.filter(k => k && k.length > 10 && !k.includes("YOUR_KEY"));
+    } else if (data.key && data.key.length > 10 && !data.key.includes("YOUR_KEY")) {
+      _keys = [data.key];
+    }
+
+    _lastFetched = Date.now();
+
+    // Reset exhausted set at start of each day (Pacific time)
+    const nowPT = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
+    const dayKey = `${nowPT.getFullYear()}-${nowPT.getMonth()}-${nowPT.getDate()}`;
+    const storedDay = sessionStorage.getItem("aurora_gemini_day");
+    if (storedDay !== dayKey) {
+      _exhausted.clear();
+      _keyIndex = 0;
+      sessionStorage.setItem("aurora_gemini_day", dayKey);
     }
   } catch(e) {
-    // Firestore unavailable — fall through to config.js
+    console.warn("Could not load Gemini keys from Firestore:", e.message);
   }
 
-  // Fallback: try config.js (local dev only — not on GitHub)
-  try {
-    const { GEMINI_KEY } = await import("./config.js");
-    if (GEMINI_KEY && GEMINI_KEY.length > 10 && !GEMINI_KEY.includes("YOUR_KEY")) {
-      _cachedKey = GEMINI_KEY;
-      return _cachedKey;
-    }
-  } catch(e) {
-    // config.js doesn't exist (normal on GitHub/hosted)
+  // Fallback: config.js (local dev only)
+  if (!_keys.length) {
+    try {
+      const { GEMINI_KEY } = await import("./config.js");
+      if (GEMINI_KEY && GEMINI_KEY.length > 10 && !GEMINI_KEY.includes("YOUR_KEY")) {
+        _keys = [GEMINI_KEY];
+      }
+    } catch {}
   }
-
-  return null;
 }
 
-export async function askGemini(prompt, maxTokens = 900) {
-  const key = await getKey();
+function getActiveKey() {
+  if (!_keys.length) return null;
+  // Find first non-exhausted key starting from current index
+  for (let i = 0; i < _keys.length; i++) {
+    const idx = (_keyIndex + i) % _keys.length;
+    if (!_exhausted.has(idx)) {
+      _keyIndex = idx;
+      return _keys[idx];
+    }
+  }
+  return null; // all keys exhausted
+}
 
+function markCurrentKeyExhausted() {
+  _exhausted.add(_keyIndex);
+  // Advance to next key
+  _keyIndex = (_keyIndex + 1) % _keys.length;
+  const remaining = _keys.length - _exhausted.size;
+  console.warn(`Key ${_keyIndex} quota reached. ${remaining} key(s) remaining.`);
+}
+
+// ── Core API call ──────────────────────────────────────────────
+export async function askGemini(prompt, maxTokens = 900) {
+  await loadKeys();
+
+  const key = getActiveKey();
   if (!key) {
+    const allExhausted = _exhausted.size >= _keys.length && _keys.length > 0;
+    if (allExhausted) {
+      throw new Error(
+        `All ${_keys.length} API key${_keys.length !== 1 ? "s" : ""} have reached today's quota.\n\n` +
+        "Quotas reset at midnight Pacific time.\n" +
+        "Add more keys via js/saveApiKey.html or wait until tomorrow."
+      );
+    }
     throw new Error(
       "No Gemini API key configured.\n\n" +
-      "Open js/saveApiKey.html in your browser to save your key securely.\n" +
+      "Open js/saveApiKey.html to save your key.\n" +
       "Get a free key at: aistudio.google.com"
     );
   }
@@ -61,77 +112,78 @@ export async function askGemini(prompt, maxTokens = 900) {
     generationConfig: { maxOutputTokens: maxTokens, temperature: 0.7 }
   });
 
-  const rateLimited = [];
-  const notFound    = [];
+  // Try all models with current key, then rotate key on quota
+  for (let attempt = 0; attempt < _keys.length + 1; attempt++) {
+    const currentKey = getActiveKey();
+    if (!currentKey) break;
 
-  for (const model of MODELS) {
-    let res, data;
-    try {
-      res  = await fetch(`${BASE}/${model}:generateContent?key=${key}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body
-      });
-      data = await res.json();
-    } catch(fetchErr) {
-      console.warn(`Model ${model} fetch error:`, fetchErr.message);
+    for (const model of MODELS) {
+      let res, data;
+      try {
+        res  = await fetch(`${BASE}/${model}:generateContent?key=${currentKey}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body
+        });
+        data = await res.json();
+      } catch(e) {
+        console.warn(`${model} network error:`, e.message);
+        continue;
+      }
+
+      if (res.ok) {
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) return text;
+        if (data?.candidates?.[0]?.finishReason === "SAFETY")
+          throw new Error("Blocked by safety filter — rephrase your prompt.");
+        continue;
+      }
+
+      const status = res.status;
+      const msg    = (data?.error?.message || "").toLowerCase();
+
+      if (status === 400 && !msg.includes("not found") && !msg.includes("deprecated")) {
+        throw new Error(`Bad request: ${data?.error?.message || "check your prompt"}`);
+      }
+      if (status === 403) {
+        // This key is revoked — mark exhausted and try next
+        markCurrentKeyExhausted();
+        break; // break model loop, outer loop will retry with next key
+      }
+      if (status === 429 || msg.includes("quota") || msg.includes("rate limit") || msg.includes("resource exhausted")) {
+        // Quota hit — mark this key exhausted, try next key
+        markCurrentKeyExhausted();
+        break; // break model loop
+      }
+      if (status === 404 || msg.includes("not found") || msg.includes("deprecated")) {
+        continue; // try next model
+      }
       continue;
     }
 
-    if (res.ok) {
-      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (text) return text;
-      if (data?.candidates?.[0]?.finishReason === "SAFETY")
-        throw new Error("Blocked by safety filter — rephrase your prompt.");
-      continue;
-    }
-
-    const status = res.status;
-    const msg    = (data?.error?.message || "").toLowerCase();
-
-    if (status === 400 && !msg.includes("not found") && !msg.includes("deprecated")) {
-      throw new Error(`Bad request: ${data?.error?.message || "check your prompt"}`);
-    }
-    if (status === 403) {
-      // Key is bad — clear cache so next call retries Firestore
-      _cachedKey = null;
-      throw new Error(
-        "API key rejected (403) — your key has been revoked.\n\n" +
-        "This usually happens when a key is exposed on GitHub.\n\n" +
-        "Fix:\n" +
-        "1. Get a new key at aistudio.google.com\n" +
-        "2. Open js/saveApiKey.html and save the new key\n" +
-        "3. Make sure js/config.js is in your .gitignore"
-      );
-    }
-    if (status === 404 || msg.includes("not found") || msg.includes("deprecated")) {
-      notFound.push(model); continue;
-    }
-    if (status === 429 || msg.includes("quota") || msg.includes("rate")) {
-      rateLimited.push(model); continue;
-    }
-    continue;
+    // If we broke out of models loop due to key rotation, retry with next key
+    const nextKey = getActiveKey();
+    if (!nextKey || nextKey === currentKey) break;
   }
 
-  if (rateLimited.length > 0) {
+  const remaining = _keys.length - _exhausted.size;
+  if (remaining <= 0) {
     throw new Error(
-      "Quota reached for today. Wait until tomorrow or get a new key at aistudio.google.com"
+      `All ${_keys.length} API key${_keys.length !== 1 ? "s" : ""} have reached today's quota.\n` +
+      "Resets at midnight Pacific. Add keys at js/saveApiKey.html."
     );
   }
-
-  throw new Error("All AI models failed. Check your API key at js/saveApiKey.html");
+  throw new Error("AI request failed — check your API key at js/saveApiKey.html");
 }
 
+// ── JSON helper ────────────────────────────────────────────────
 export async function askGeminiJSON(prompt, maxTokens = 600) {
   const cleanJSON = (raw) => {
     if (!raw) return null;
     let s = raw.trim();
-    // Remove all code fences
     s = s.replace(/^```(?:json|JSON)?\s*/gm, "").replace(/^```\s*$/gm, "").trim();
-    // Find where JSON starts
     const start = s.search(/[\[{]/);
     if (start > 0) s = s.slice(start);
-    // Find where JSON ends (last closing brace/bracket)
     const lastObj = s.lastIndexOf("}");
     const lastArr = s.lastIndexOf("]");
     const end = Math.max(lastObj, lastArr);
@@ -139,7 +191,6 @@ export async function askGeminiJSON(prompt, maxTokens = 600) {
     return s.trim();
   };
 
-  // First attempt
   const raw1 = await askGemini(
     prompt + "\n\nIMPORTANT: Output ONLY valid JSON, starting with { or [. No markdown, no explanation.",
     maxTokens
@@ -147,12 +198,10 @@ export async function askGeminiJSON(prompt, maxTokens = 600) {
   const c1 = cleanJSON(raw1);
   if (c1) {
     try { return JSON.parse(c1); } catch {}
-    // Try regex extraction
     const m1 = c1.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
     if (m1) try { return JSON.parse(m1[1]); } catch {}
   }
 
-  // Second attempt — even more explicit
   const raw2 = await askGemini(
     "Output ONLY a JSON object or array, nothing else. No text, no markdown.\n\n" + prompt,
     maxTokens
@@ -165,4 +214,35 @@ export async function askGeminiJSON(prompt, maxTokens = 600) {
   }
 
   throw new Error("AI response could not be parsed — please try again.");
+}
+
+// ── Key status (for saveApiKey.html UI) ───────────────────────
+export function getKeyStatus() {
+  return {
+    total:     _keys.length,
+    active:    _keys.length - _exhausted.size,
+    exhausted: _exhausted.size,
+    currentIndex: _keyIndex
+  };
+}
+
+// ── Save keys to Firestore ─────────────────────────────────────
+export async function saveKeysToFirestore(keysArray) {
+  if (!Array.isArray(keysArray)) keysArray = [keysArray];
+  const validKeys = keysArray.map(k => k.trim()).filter(k => k.length > 10);
+  await setDoc(doc(db, "appConfig", "gemini"), {
+    keys: validKeys,
+    key:  validKeys[0] || "",  // legacy single-key field
+    updatedAt: new Date().toISOString(),
+    keyCount: validKeys.length
+  });
+  _keys = validKeys;
+  _exhausted.clear();
+  _keyIndex = 0;
+  _lastFetched = Date.now();
+}
+
+// Legacy single-key save (backward compat)
+export async function saveKeyToFirestore(newKey) {
+  await saveKeysToFirestore([newKey]);
 }
