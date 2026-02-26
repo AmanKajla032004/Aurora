@@ -8,11 +8,16 @@ import { renderHome, initHome } from "./views/homeView.js";
 import { renderFocusMode, initFocusMode, destroyFocusMode } from "./views/focusMode.js";
 import { renderFocusRooms, initFocusRooms, destroyFocusRooms } from "./views/focusRooms.js";
 import { renderSwot, initSwotLogic } from "./views/swotView.js";
-import { renderReport, initReport } from "./views/reportView.js";
+import { renderReport, initReport, checkAndGenerateMissedReports } from "./views/reportView.js";
 import { renderFriends, initFriends } from "./views/friendsView.js";
 
 export let currentRoute = "home";
 let activeRoute = null;
+
+// Run missed report check on every app load (background, silent)
+if (typeof checkAndGenerateMissedReports === "function") {
+  checkAndGenerateMissedReports();
+}
 
 export async function navigate(route) {
   if (activeRoute === "whisper") destroyWhisper();
@@ -48,7 +53,6 @@ export async function navigate(route) {
     rooms:      { title: "Focus Rooms",   render: renderFocusRooms,  init: initFocusRooms },
     swot:       { title: "SWOT Analysis", render: renderSwot,        init: initSwotLogic },
     report:     { title: "Daily Report",  render: renderReport,      init: initReport },
-    friends:    { title: "Friends",       render: renderFriends,     init: initFriends },
   };
 
   const r = routes[route];

@@ -89,7 +89,7 @@ export async function initReport() {
   if (cached) showCachedReport(cached);
 
   // Schedule end-of-period auto reports
-  scheduleAutoReports();
+  scheduleAutoReports(); // async — runs in background, doesn't block UI
 }
 
 // ─── Stats (instant, no AI) ───────────────────────────────────
@@ -332,51 +332,30 @@ NEXT STEPS`;
 // ─── Auto end-of-period reports ───────────────────────────────
 // Strategy: check on every page load if a report was missed since last visit.
 // Also schedule timers for current session if the app stays open.
-function scheduleAutoReports() {
-  const now = new Date();
-
-  // Check if we missed generating reports since last visit
-  checkMissedReports();
-
-  // Also schedule for current session (if app stays open)
-  const eod = new Date(now); eod.setHours(23, 58, 0, 0);
-  if (eod > now) setTimeout(() => runAutoReport("day"), eod - now);
-
-  const dow = now.getDay();
-  const daysToSunday = dow === 0 ? 0 : 7 - dow;
-  const eow = new Date(now); eow.setDate(now.getDate() + daysToSunday); eow.setHours(23, 58, 0, 0);
-  if (eow > now) setTimeout(() => runAutoReport("week"), eow - now);
-
-  const eom = new Date(now.getFullYear(), now.getMonth()+1, 0); eom.setHours(23, 58, 0, 0);
-  if (eom > now) setTimeout(() => runAutoReport("month"), eom - now);
+// ─── Helper: local date key "YYYYMMDD" ───────────────────────
+function dateKey(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,"0");
+  const day = String(d.getDate()).padStart(2,"0");
+  return `${y}${m}${day}`;
 }
 
-function checkMissedReports() {
-  const now = new Date();
-  const lastVisit = parseInt(localStorage.getItem("aurora_last_visit") || "0");
-  const last = new Date(lastVisit || now);
-
-  // If we crossed midnight since last visit, generate yesterday's daily report
-  if (lastVisit && last.toDateString() !== now.toDateString()) {
-    const prevPeriod = activePeriod;
-    activePeriod = "day";
-    const cached = getCachedReport("day");
-    if (!cached) {
-      // Generate report for yesterday without changing current view
-      generateMissedReport("day", last);
-    }
-    activePeriod = prevPeriod;
-  }
-
-  // Save current visit time
-  localStorage.setItem("aurora_last_visit", now.getTime().toString());
+// ─── Save a report for a specific date ───────────────────────
+function saveReportForDate(period, dateStr, htmlContent) {
+  try {
+    localStorage.setItem(`aurora_report_${period}_${dateStr}`,
+      JSON.stringify({ html: htmlContent, generatedAt: Date.now(), hasAI: true, isAuto: true }));
+  } catch(e) {}
 }
 
-async function generateMissedReport(period, forDate) {
-  let tasks = [];
-  try { tasks = await getTasksFromCloud(); } catch(e) { return; }
+// ─── Check if a report exists for a given date key ───────────
+function hasReportForDate(period, dateStr) {
+  try { return !!localStorage.getItem(`aurora_report_${period}_${dateStr}`); }
+  catch(e) { return false; }
+}
 
-  // Build stats as of that date
+// ─── Generate a report for a past date ───────────────────────
+async function generateReportForDate(period, forDate, tasks) {
   const savedPeriod = activePeriod;
   activePeriod = period;
   const { statsHtml, meta } = buildStats(tasks, forDate);
@@ -386,12 +365,91 @@ async function generateMissedReport(period, forDate) {
     const prompt = buildPrompt(meta);
     const aiText = await askGemini(prompt, 600);
     const aiSection = `<div class="report-ai-card">
-      <div class="report-ai-header"><span class="report-ai-title-text">✦ Auto Report</span></div>
+      <div class="report-ai-header">
+        <span class="report-ai-title-text">✦ ${period === "day" ? "Daily" : period === "week" ? "Weekly" : "Monthly"} Report — ${forDate.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</span>
+      </div>
       <div class="report-ai-body">${formatAI(aiText)}</div>
     </div>`;
-    const key = `aurora_report_${period}_${forDate.toISOString().split("T")[0].replace(/-/g,"")}`;
-    localStorage.setItem(key, JSON.stringify({ html: statsHtml + aiSection, generatedAt: forDate.getTime(), hasAI: true, isAuto: true }));
-  } catch(e) { /* silent fail */ }
+    saveReportForDate(period, dateKey(forDate), statsHtml + aiSection);
+  } catch(e) {
+    // Save stats-only on AI failure
+    saveReportForDate(period, dateKey(forDate), statsHtml);
+  }
+}
+
+// ─── Main: check on every app open if any reports are missing ─
+export async function checkAndGenerateMissedReports() { return scheduleAutoReports(); }
+
+async function scheduleAutoReports() {
+  const now = new Date();
+  const lastVisitMs = parseInt(localStorage.getItem("aurora_last_visit") || "0");
+  localStorage.setItem("aurora_last_visit", now.getTime().toString());
+
+  // No previous visit — nothing to backfill
+  if (!lastVisitMs) return;
+
+  const last = new Date(lastVisitMs);
+
+  // Don't check if last visit was today (nothing to backfill yet)
+  if (dateKey(last) === dateKey(now)) {
+    // But still schedule end-of-day timer for tonight
+    scheduleTimer(now);
+    return;
+  }
+
+  // Fetch tasks once — reuse for all report generation
+  let tasks = [];
+  try { tasks = await getTasksFromCloud(); } catch(e) { return; }
+
+  // ── Daily: generate for every missed day between last visit and today ──
+  const dayMs = 86400000;
+  let cursor = new Date(last);
+  cursor.setHours(23, 59, 0, 0); // end of that day
+  while (cursor < now) {
+    const dk = dateKey(cursor);
+    if (dk !== dateKey(now) && !hasReportForDate("day", dk)) {
+      await generateReportForDate("day", new Date(cursor), tasks);
+    }
+    cursor = new Date(cursor.getTime() + dayMs);
+  }
+
+  // ── Weekly: generate if we crossed a week boundary ──
+  const lastWeekStart = new Date(last); lastWeekStart.setDate(last.getDate() - last.getDay());
+  const nowWeekStart  = new Date(now);  nowWeekStart.setDate(now.getDate() - now.getDay());
+  if (lastWeekStart.getTime() < nowWeekStart.getTime()) {
+    const endOfLastWeek = new Date(nowWeekStart.getTime() - 1); // last millisecond of prev week
+    const dk = dateKey(endOfLastWeek);
+    if (!hasReportForDate("week", dk)) {
+      await generateReportForDate("week", endOfLastWeek, tasks);
+    }
+  }
+
+  // ── Monthly: generate if we crossed a month boundary ──
+  if (last.getMonth() !== now.getMonth() || last.getFullYear() !== now.getFullYear()) {
+    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+    const dk = dateKey(endOfLastMonth);
+    if (!hasReportForDate("month", dk)) {
+      await generateReportForDate("month", endOfLastMonth, tasks);
+    }
+  }
+
+  // Schedule tonight's timer for current session
+  scheduleTimer(now);
+}
+
+// ─── Schedule end-of-day timer (only works if tab stays open) ─
+function scheduleTimer(now) {
+  const eod = new Date(now); eod.setHours(23, 59, 0, 0);
+  if (eod > now) {
+    setTimeout(async () => {
+      let tasks = [];
+      try { tasks = await getTasksFromCloud(); } catch(e) { return; }
+      const today = new Date();
+      if (!hasReportForDate("day", dateKey(today))) {
+        await generateReportForDate("day", today, tasks);
+      }
+    }, eod - now);
+  }
 }
 
 async function runAutoReport(period) {
@@ -476,8 +534,7 @@ function showCachedReport(cached) {
 }
 
 function todayKey() {
-  const d = new Date();
-  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  return dateKey(new Date()); // consistent YYYYMMDD format
 }
 
 // ─── Past Reports history view ────────────────────────────────
