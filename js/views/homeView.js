@@ -120,7 +120,8 @@ export async function initHome() {
   const totalDone  = tasks.filter(t => t.completed).length;
 
   // Streak
-  const days = new Set(tasks.filter(t => t.type==="daily" && t.completed && t.completedAt).map(t => {
+  // Streak: any day with ANY completed task counts
+  const days = new Set(tasks.filter(t => t.completed && t.completedAt).map(t => {
     const d = new Date(t.completedAt.seconds ? t.completedAt.seconds*1000 : t.completedAt);
     return d.toDateString();
   }));

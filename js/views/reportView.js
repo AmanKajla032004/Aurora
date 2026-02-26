@@ -177,27 +177,50 @@ async function generateAI() {
 }
 
 // ─── Build stats from tasks (no AI) ──────────────────────────
-function buildStats(tasks) {
-  const now = new Date();
+function buildStats(tasks, refDate) {
+  const now = refDate || new Date();
   let since, periodLabel, periodTitle;
 
   if (activePeriod === "day" || activePeriod === "swot") {
     since = new Date(now); since.setHours(0,0,0,0);
     periodLabel = "today"; periodTitle = "Today";
   } else if (activePeriod === "week") {
-    since = new Date(now); since.setDate(now.getDate() - 7);
-    periodLabel = "the past 7 days"; periodTitle = "This Week";
+    since = new Date(now); since.setDate(now.getDate() - now.getDay()); since.setHours(0,0,0,0);
+    periodLabel = "this week"; periodTitle = "This Week";
   } else {
-    since = new Date(now); since.setDate(now.getDate() - 30);
-    periodLabel = "the past 30 days"; periodTitle = "This Month";
+    since = new Date(now.getFullYear(), now.getMonth(), 1);
+    periodLabel = "this month"; periodTitle = "This Month";
   }
+
+  // Correct local-time deadline builder (no UTC shift)
+  const buildDeadline = (dueDate, dueTime) => {
+    if (!dueDate) return null;
+    const dp = dueDate.length > 10 ? dueDate.slice(0,10) : dueDate;
+    const [y,mo,d] = dp.split("-").map(Number);
+    if (dueTime) { const [h,m] = dueTime.split(":").map(Number); return new Date(y,mo-1,d,h,m); }
+    return new Date(y, mo-1, d, 23, 59, 59, 999);
+  };
 
   const completedInPeriod = tasks.filter(t => {
     if (!t.completed || !t.completedAt) return false;
     const d = new Date(t.completedAt.seconds ? t.completedAt.seconds * 1000 : t.completedAt);
-    return d >= since;
+    return d >= since && d <= now;
   });
-  const overdue = tasks.filter(t => !t.completed && t.dueDate && new Date(t.dueDate) < now);
+
+  // For daily report — only count tasks that were actually due today (or have no due date but are daily/once)
+  // For weekly/monthly — count tasks due within that period
+  const overdue = tasks.filter(t => {
+    if (t.completed || !t.dueDate) return false;
+    if (activePeriod === "day") {
+      // Daily report: only show tasks due today or earlier (not future weekly/monthly goals)
+      const dl = buildDeadline(t.dueDate, t.dueTime);
+      const endOfToday = new Date(now); endOfToday.setHours(23,59,59,999);
+      return dl && dl < now && dl <= endOfToday;
+    }
+    const dl = buildDeadline(t.dueDate, t.dueTime);
+    return dl && dl < now;
+  });
+
   const pending = tasks.filter(t => !t.completed);
   const highPri = pending.filter(t => (t.priority||0) >= 4).slice(0, 5);
   const rate    = tasks.length ? Math.round(tasks.filter(t=>t.completed).length / tasks.length * 100) : 0;
@@ -273,18 +296,13 @@ function buildStats(tasks) {
 function buildPrompt(meta) {
   const { completedInPeriod=[], overdue=[], pending=[], highPri=[], streak=0, rate=0, tasks=[], periodLabel="today" } = meta;
 
-  // Helper: show title + description context for richer AI understanding
-  const taskLabel = t => t.title + (t.description ? ` (${t.description})` : "");
-
   if (activePeriod === "swot") {
     return `Productivity SWOT analysis. Plain text, no markdown dashes.
 Data: ${tasks.length} total tasks, ${tasks.filter(t=>t.completed).length} completed (${rate}%), ${overdue.length} overdue, ${streak} day streak.
-Recent completions: ${completedInPeriod.slice(0,5).map(taskLabel).join(", ")||"none"}.
-Overdue: ${overdue.slice(0,3).map(taskLabel).join(", ")||"none"}.
-Pending high-priority: ${highPri.slice(0,3).map(taskLabel).join(", ")||"none"}.
+Recent completions: ${completedInPeriod.slice(0,5).map(t=>t.title).join(", ")||"none"}.
+Overdue: ${overdue.slice(0,3).map(t=>t.title).join(", ")||"none"}.
 
-Use the task descriptions (in parentheses) to understand the actual context of each task.
-Write 4 sections exactly as labelled, 2-3 sentences each, referencing specific tasks by name:
+Write 4 sections exactly as labelled, 2-3 sentences each:
 STRENGTHS
 WEAKNESSES
 OPPORTUNITIES
@@ -292,33 +310,88 @@ THREATS`;
   }
 
   const periodName = activePeriod === "day" ? "end-of-day" : activePeriod === "week" ? "weekly" : "monthly";
-  return `${periodName} productivity report. Plain text, no markdown dashes.
-${periodLabel}: completed ${completedInPeriod.length} tasks${completedInPeriod.length?": "+completedInPeriod.slice(0,4).map(taskLabel).join(", "):""}. 
-Pending: ${pending.length}. Overdue: ${overdue.length}${overdue.length?": "+overdue.slice(0,2).map(taskLabel).join(", "):""}. Streak: ${streak}d. Rate: ${rate}%.
-High priority pending: ${highPri.slice(0,3).map(taskLabel).join(", ")||"none"}.
+  const taskLabel = t => t.title + (t.description ? ` (${t.description})` : "");
+  const dailyNote = activePeriod === "day"
+    ? "\nImportant: Focus only on TODAY\'s activity. Long-term goals (weekly/monthly/yearly tasks) are ongoing — acknowledge progress, not failure."
+    : "";
+  const pendingCount = activePeriod === "day"
+    ? pending.filter(t => t.type === "daily" || t.type === "once").length
+    : pending.length;
 
-Use the task descriptions (in parentheses) to understand context. Write 3 sections exactly as labelled:
+  return `${periodName} productivity report. Plain text, no markdown dashes.${dailyNote}
+${periodLabel}: completed ${completedInPeriod.length} tasks${completedInPeriod.length?": "+completedInPeriod.slice(0,4).map(taskLabel).join(", "):""}.
+Pending: ${pendingCount}. Overdue: ${overdue.length}${overdue.length?": "+overdue.slice(0,2).map(taskLabel).join(", "):""}. Streak: ${streak}d. Rate: ${rate}%.
+High priority: ${highPri.slice(0,3).map(taskLabel).join(", ")||"none"}.
+
+Write 3 sections exactly as labelled, 2-3 sentences each:
 WINS
 WATCH OUT
 NEXT STEPS`;
 }
 
 // ─── Auto end-of-period reports ───────────────────────────────
+// Strategy: check on every page load if a report was missed since last visit.
+// Also schedule timers for current session if the app stays open.
 function scheduleAutoReports() {
   const now = new Date();
 
-  // End of day: 23:58
+  // Check if we missed generating reports since last visit
+  checkMissedReports();
+
+  // Also schedule for current session (if app stays open)
   const eod = new Date(now); eod.setHours(23, 58, 0, 0);
   if (eod > now) setTimeout(() => runAutoReport("day"), eod - now);
 
-  // End of week: Sunday 23:58
   const dow = now.getDay();
-  const eow = new Date(now); eow.setDate(now.getDate() + (7 - dow) % 7); eow.setHours(23, 58, 0, 0);
+  const daysToSunday = dow === 0 ? 0 : 7 - dow;
+  const eow = new Date(now); eow.setDate(now.getDate() + daysToSunday); eow.setHours(23, 58, 0, 0);
   if (eow > now) setTimeout(() => runAutoReport("week"), eow - now);
 
-  // End of month: last day 23:58
   const eom = new Date(now.getFullYear(), now.getMonth()+1, 0); eom.setHours(23, 58, 0, 0);
   if (eom > now) setTimeout(() => runAutoReport("month"), eom - now);
+}
+
+function checkMissedReports() {
+  const now = new Date();
+  const lastVisit = parseInt(localStorage.getItem("aurora_last_visit") || "0");
+  const last = new Date(lastVisit || now);
+
+  // If we crossed midnight since last visit, generate yesterday's daily report
+  if (lastVisit && last.toDateString() !== now.toDateString()) {
+    const prevPeriod = activePeriod;
+    activePeriod = "day";
+    const cached = getCachedReport("day");
+    if (!cached) {
+      // Generate report for yesterday without changing current view
+      generateMissedReport("day", last);
+    }
+    activePeriod = prevPeriod;
+  }
+
+  // Save current visit time
+  localStorage.setItem("aurora_last_visit", now.getTime().toString());
+}
+
+async function generateMissedReport(period, forDate) {
+  let tasks = [];
+  try { tasks = await getTasksFromCloud(); } catch(e) { return; }
+
+  // Build stats as of that date
+  const savedPeriod = activePeriod;
+  activePeriod = period;
+  const { statsHtml, meta } = buildStats(tasks, forDate);
+  activePeriod = savedPeriod;
+
+  try {
+    const prompt = buildPrompt(meta);
+    const aiText = await askGemini(prompt, 600);
+    const aiSection = `<div class="report-ai-card">
+      <div class="report-ai-header"><span class="report-ai-title-text">✦ Auto Report</span></div>
+      <div class="report-ai-body">${formatAI(aiText)}</div>
+    </div>`;
+    const key = `aurora_report_${period}_${forDate.toISOString().split("T")[0].replace(/-/g,"")}`;
+    localStorage.setItem(key, JSON.stringify({ html: statsHtml + aiSection, generatedAt: forDate.getTime(), hasAI: true, isAuto: true }));
+  } catch(e) { /* silent fail */ }
 }
 
 async function runAutoReport(period) {

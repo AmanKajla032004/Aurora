@@ -1985,3 +1985,57 @@ body.dark .priority-pill {
   transform: translateY(-2px) !important;
   box-shadow: 0 0 20px rgba(255,255,255,0.05) !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   TASK ACTION BUTTONS — mobile friendly tap targets
+═══════════════════════════════════════════════════════════════ */
+.task-actions {
+  display: flex !important;
+  gap: 6px !important;
+  padding: 8px 12px !important;
+  border-top: 1px solid rgba(255,255,255,0.06) !important;
+  flex-wrap: nowrap !important;
+}
+.complete-btn, .edit-btn, .delete-btn {
+  flex: 1 !important;
+  min-height: 36px !important;
+  padding: 6px 8px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  font-family: inherit !important;
+  transition: all 0.15s !important;
+  white-space: nowrap !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px !important;
+}
+.complete-btn {
+  background: rgba(0,200,122,0.1) !important;
+  border: 1px solid rgba(0,200,122,0.25) !important;
+  color: #00c87a !important;
+}
+.complete-btn:hover, .complete-btn:active { background: rgba(0,200,122,0.22) !important; }
+.edit-btn {
+  background: rgba(255,255,255,0.05) !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+  color: var(--muted) !important;
+}
+.edit-btn:hover, .edit-btn:active { background: rgba(255,255,255,0.12) !important; color: var(--text) !important; }
+.delete-btn {
+  flex: 0 0 auto !important;
+  background: rgba(239,68,68,0.08) !important;
+  border: 1px solid rgba(239,68,68,0.2) !important;
+  color: #ef4444 !important;
+}
+.delete-btn:hover, .delete-btn:active { background: rgba(239,68,68,0.2) !important; }
+
+@media (max-width: 480px) {
+  .complete-btn, .edit-btn, .delete-btn {
+    min-height: 42px !important;
+    font-size: 12px !important;
+  }
+  .delete-btn { flex: 1 !important; }
+}

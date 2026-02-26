@@ -27,7 +27,8 @@ export async function initDashboard() {
     (now - new Date(t.completedAt.seconds ? t.completedAt.seconds*1000 : t.completedAt)) <= 7*86400000).length;
 
   // ── Streak ──
-  const doneDays = new Set(tasks.filter(t => t.type==="daily"&&t.completed&&t.completedAt)
+  // Streak = any day where at least one task was completed (any type)
+  const doneDays = new Set(tasks.filter(t => t.completed && t.completedAt)
     .map(t => new Date(t.completedAt.seconds ? t.completedAt.seconds*1000 : t.completedAt).toDateString()));
   let streak = 0;
   for (let i = 0; i <= 365; i++) {
