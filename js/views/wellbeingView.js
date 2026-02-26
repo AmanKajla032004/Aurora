@@ -5,93 +5,78 @@ import {
   orderBy, limit, getDocs, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// ── Helpers ───────────────────────────────────────────────────
 function localDateKey(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 }
-
 async function saveEntry(data) {
-  const uid  = auth.currentUser?.uid;
-  if (!uid) return;
-  const key  = localDateKey();
-  await setDoc(doc(db, "wellbeing", uid, "entries", key), {
-    ...data, date: key, savedAt: serverTimestamp()
-  }, { merge: true });
+  const uid = auth.currentUser?.uid; if (!uid) return;
+  await setDoc(doc(db,"wellbeing",uid,"entries",localDateKey()), { ...data, date:localDateKey(), savedAt:serverTimestamp() }, { merge:true });
 }
-
 async function loadTodayEntry() {
-  const uid = auth.currentUser?.uid;
-  if (!uid) return null;
-  const snap = await getDoc(doc(db, "wellbeing", uid, "entries", localDateKey()));
+  const uid = auth.currentUser?.uid; if (!uid) return null;
+  const snap = await getDoc(doc(db,"wellbeing",uid,"entries",localDateKey()));
   return snap.exists() ? snap.data() : null;
 }
-
-async function loadHistory(n = 14) {
-  const uid = auth.currentUser?.uid;
-  if (!uid) return [];
-  const q    = query(collection(db, "wellbeing", uid, "entries"), orderBy("date", "desc"), limit(n));
+async function loadHistory(n=14) {
+  const uid = auth.currentUser?.uid; if (!uid) return [];
+  const q = query(collection(db,"wellbeing",uid,"entries"), orderBy("date","desc"), limit(n));
   const snap = await getDocs(q);
-  return snap.docs.map(d => d.data()).reverse();
+  return snap.docs.map(d=>d.data()).reverse();
 }
 
-// ── Render ────────────────────────────────────────────────────
 export function renderWellbeing() {
   return `<div class="wb-page" id="wellbeingPage">
-    <div class="wb-header">
-      <div>
-        <h2 class="wb-title">Wellbeing</h2>
-        <div class="wb-subtitle">Track how you're doing — mind and body</div>
-      </div>
-      <button class="wb-ai-btn" id="wbAiBtn">✦ AI Check-in</button>
+
+  <div class="wb-header">
+    <div>
+      <h2 class="wb-title">Wellbeing</h2>
+      <div class="wb-subtitle">Mind · Body · Balance — tracked daily</div>
     </div>
+    <button class="wb-ai-btn" id="wbAiBtn">✦ AI Check-in</button>
+  </div>
 
-    <!-- Today card -->
-    <div class="wb-today-card" id="wbTodayCard">
-      <div class="wb-card-title">📅 Today's Check-in</div>
+  <!-- Tabs -->
+  <div class="wb-tabs">
+    <button class="wb-tab active" data-tab="checkin">📋 Check-in</button>
+    <button class="wb-tab" data-tab="swot">⚡ Wellbeing SWOT</button>
+    <button class="wb-tab" data-tab="history">📈 Trends</button>
+  </div>
 
-      <!-- Mood -->
-      <div class="wb-field">
-        <div class="wb-field-label">Mood</div>
-        <div class="wb-emoji-row" id="wbMoodRow">
-          ${["😞","😔","😐","🙂","😊","😄","🤩"].map((e,i) =>
-            `<button class="wb-emoji-btn" data-group="mood" data-val="${i+1}" title="${["Terrible","Bad","Meh","Okay","Good","Great","Amazing"][i]}">${e}</button>`
-          ).join("")}
-        </div>
+  <!-- CHECK-IN TAB -->
+  <div class="wb-tab-panel" id="wbTabCheckin">
+    <div class="wb-today-card">
+      <div class="wb-card-title">📅 Today — ${new Date().toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})}</div>
+
+      <div class="wb-section-label">How are you feeling?</div>
+      <div class="wb-emoji-row" id="wbMoodRow">
+        ${["😞","😔","😐","🙂","😊","😄","🤩"].map((e,i)=>
+          `<button class="wb-emoji-btn" data-group="mood" data-val="${i+1}" title="${["Terrible","Bad","Meh","Okay","Good","Great","Amazing"][i]}">
+            <span class="wb-emoji-glyph">${e}</span>
+            <span class="wb-emoji-label">${["Terrible","Bad","Meh","Okay","Good","Great","Amazing"][i]}</span>
+          </button>`).join("")}
       </div>
 
-      <!-- Energy -->
-      <div class="wb-field">
-        <div class="wb-field-label">Energy</div>
-        <div class="wb-emoji-row" id="wbEnergyRow">
-          ${["🪫","😴","🐢","⚡","🔋","🚀"].map((e,i) =>
-            `<button class="wb-emoji-btn" data-group="energy" data-val="${i+1}" title="${["Drained","Tired","Low","Okay","Good","Energized"][i]}">${e}</button>`
-          ).join("")}
-        </div>
+      <div class="wb-section-label">Energy level</div>
+      <div class="wb-emoji-row" id="wbEnergyRow">
+        ${["🪫","😴","🐢","⚡","🔋","🚀"].map((e,i)=>
+          `<button class="wb-emoji-btn" data-group="energy" data-val="${i+1}" title="${["Drained","Tired","Low","Okay","Good","Energized"][i]}">
+            <span class="wb-emoji-glyph">${e}</span>
+            <span class="wb-emoji-label">${["Drained","Tired","Low","Okay","Good","Energized"][i]}</span>
+          </button>`).join("")}
       </div>
 
-      <!-- Stress -->
-      <div class="wb-field">
-        <div class="wb-field-label">😰 Stress Level <span style="opacity:0.45;font-size:11px;font-weight:400">(1 = calm, 5 = overwhelmed)</span></div>
-        <div class="wb-stress-row">
-          ${[
-            {v:1, label:"Calm",         color:"#22c55e"},
-            {v:2, label:"Mild",          color:"#86efac"},
-            {v:3, label:"Moderate",      color:"#f59e0b"},
-            {v:4, label:"High",          color:"#f97316"},
-            {v:5, label:"Overwhelmed",   color:"#ef4444"}
-          ].map(s =>
-            `<button class="wb-stress-btn" data-val="${s.v}" data-color="${s.color}" style="--stress-color:${s.color}">
-               <span class="wb-stress-num">${s.v}</span>
-               <span class="wb-stress-lbl">${s.label}</span>
-             </button>`
-          ).join("")}
-        </div>
+      <div class="wb-section-label">Stress level</div>
+      <div class="wb-stress-row">
+        ${[{v:1,l:"Calm",c:"#22c55e"},{v:2,l:"Mild",c:"#86efac"},{v:3,l:"Moderate",c:"#f59e0b"},{v:4,l:"High",c:"#f97316"},{v:5,l:"Overwhelmed",c:"#ef4444"}].map(s=>
+          `<button class="wb-stress-btn" data-val="${s.v}" style="--stress-color:${s.c}">
+            <span class="wb-stress-num">${s.v}</span>
+            <span class="wb-stress-lbl">${s.l}</span>
+          </button>`).join("")}
       </div>
 
-      <!-- Sleep & Water -->
-      <div class="wb-row-2col">
+      <div class="wb-two-col">
         <div class="wb-field">
-          <div class="wb-field-label">💤 Sleep</div>
+          <div class="wb-section-label">💤 Sleep</div>
           <div class="wb-slider-wrap">
             <input type="range" class="wb-slider" id="sleepSlider" min="0" max="12" step="0.5" value="7">
             <div class="wb-slider-val"><span id="sleepVal">7</span>h</div>
@@ -99,7 +84,7 @@ export function renderWellbeing() {
           <div class="wb-slider-hints"><span>0h</span><span>6h</span><span>12h</span></div>
         </div>
         <div class="wb-field">
-          <div class="wb-field-label">💧 Water</div>
+          <div class="wb-section-label">💧 Water</div>
           <div class="wb-slider-wrap">
             <input type="range" class="wb-slider" id="waterSlider" min="0" max="15" step="1" value="6">
             <div class="wb-slider-val"><span id="waterVal">6</span> glasses</div>
@@ -108,98 +93,115 @@ export function renderWellbeing() {
         </div>
       </div>
 
-      <!-- Exercise -->
-      <div class="wb-field">
-        <div class="wb-field-label">🏃 Exercise today</div>
-        <div class="wb-toggle-row">
-          ${["None","Walk","Workout","Sport","Yoga"].map(v =>
-            `<button class="wb-toggle-btn" data-group="exercise" data-val="${v}">${v}</button>`
-          ).join("")}
-        </div>
+      <div class="wb-section-label">🏃 Exercise</div>
+      <div class="wb-toggle-row">
+        ${["None","Walk","Workout","Sport","Yoga","Meditation"].map(v=>
+          `<button class="wb-toggle-btn" data-group="exercise" data-val="${v}">${v}</button>`).join("")}
       </div>
 
-      <!-- Note -->
-      <div class="wb-field">
-        <div class="wb-field-label">📝 Note <span style="opacity:0.4;font-size:11px">(optional)</span></div>
-        <textarea class="wb-note-input" id="wbNote" placeholder="How are you feeling today? Anything on your mind..." rows="3"></textarea>
-      </div>
+      <div class="wb-section-label">📝 Note <span style="opacity:0.4;font-size:11px;font-weight:400">(optional)</span></div>
+      <textarea class="wb-note-input" id="wbNote" placeholder="How are you really feeling? Anything weighing on your mind..." rows="3"></textarea>
 
       <button class="wb-save-btn" id="wbSaveBtn">Save Check-in ✓</button>
       <div class="wb-save-msg" id="wbSaveMsg"></div>
     </div>
 
-    <!-- AI insight card -->
+    <!-- AI insight -->
     <div class="wb-ai-card" id="wbAiCard" style="display:none">
       <div class="wb-card-title">✦ AI Wellbeing Insight</div>
       <div id="wbAiBody" class="wb-ai-body"></div>
     </div>
+  </div>
 
-    <!-- 14-day trend -->
-    <div class="wb-history-card" id="wbHistoryCard" style="display:none">
-      <div class="wb-card-title">📈 14-Day Trends</div>
-      <div class="wb-chart-wrap">
-        <canvas id="wbMoodChart" height="80"></canvas>
-      </div>
-      <div id="wbHistoryList" class="wb-history-list"></div>
+  <!-- SWOT TAB -->
+  <div class="wb-tab-panel" id="wbTabSwot" style="display:none">
+    <div class="wb-swot-intro">
+      <p>Based on your recent wellbeing data, AI generates a personal health & mindset SWOT — what's supporting you, what's draining you, and where to focus.</p>
+      <button class="wb-ai-btn" id="wbSwotBtn" style="margin-top:12px">⚡ Generate Wellbeing SWOT</button>
     </div>
-  </div>`;
+    <div id="wbSwotResult" style="display:none">
+      <div class="wb-swot-grid">
+        <div class="wb-swot-card wb-swot-s"><div class="wb-swot-label">💪 Strengths</div><div class="wb-swot-body" id="wbSwotS"></div></div>
+        <div class="wb-swot-card wb-swot-w"><div class="wb-swot-label">⚠ Weaknesses</div><div class="wb-swot-body" id="wbSwotW"></div></div>
+        <div class="wb-swot-card wb-swot-o"><div class="wb-swot-label">🌱 Opportunities</div><div class="wb-swot-body" id="wbSwotO"></div></div>
+        <div class="wb-swot-card wb-swot-t"><div class="wb-swot-label">🔥 Threats</div><div class="wb-swot-body" id="wbSwotT"></div></div>
+      </div>
+      <div class="wb-swot-summary" id="wbSwotSummary"></div>
+    </div>
+  </div>
+
+  <!-- HISTORY TAB -->
+  <div class="wb-tab-panel" id="wbTabHistory" style="display:none">
+    <div class="wb-history-card">
+      <div class="wb-card-title">📈 14-Day Trends</div>
+      <div style="position:relative;height:100px"><canvas id="wbMoodChart"></canvas></div>
+      <div class="wb-chart-legend">
+        <span style="color:var(--accent)">● Mood</span>
+        <span style="color:#f97316">● Energy</span>
+        <span style="color:#ef4444">● Stress</span>
+      </div>
+    </div>
+    <div id="wbHistoryList" class="wb-history-list"></div>
+  </div>
+
+</div>`;
 }
 
-// ── Init ──────────────────────────────────────────────────────
-let wbState = { mood: null, energy: null, stress: null, sleep: 7, water: 6, exercise: "None" };
+let wbState = { mood:null, energy:null, stress:null, sleep:7, water:6, exercise:"None" };
 
 export async function initWellbeing() {
-  // Load today's entry
-  const today = await loadTodayEntry().catch(() => null);
+  const today = await loadTodayEntry().catch(()=>null);
   if (today) applyState(today);
+
+  // Tab switching
+  document.querySelectorAll(".wb-tab").forEach(tab => {
+    tab.onclick = () => {
+      document.querySelectorAll(".wb-tab").forEach(t=>t.classList.remove("active"));
+      tab.classList.add("active");
+      document.querySelectorAll(".wb-tab-panel").forEach(p=>p.style.display="none");
+      const panel = document.getElementById("wbTab" + tab.dataset.tab.charAt(0).toUpperCase() + tab.dataset.tab.slice(1));
+      if (panel) { panel.style.display="block"; }
+      if (tab.dataset.tab === "history") loadAndRenderHistory();
+    };
+  });
 
   // Emoji pickers
   document.querySelectorAll(".wb-emoji-btn").forEach(btn => {
     btn.onclick = () => {
-      const group = btn.dataset.group;
-      document.querySelectorAll(`.wb-emoji-btn[data-group="${group}"]`).forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(`.wb-emoji-btn[data-group="${btn.dataset.group}"]`).forEach(b=>b.classList.remove("active"));
       btn.classList.add("active");
-      wbState[group] = parseInt(btn.dataset.val);
+      wbState[btn.dataset.group] = parseInt(btn.dataset.val);
     };
   });
 
-  // Stress buttons
+  // Stress
   document.querySelectorAll(".wb-stress-btn").forEach(btn => {
     btn.onclick = () => {
-      document.querySelectorAll(".wb-stress-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".wb-stress-btn").forEach(b=>b.classList.remove("active"));
       btn.classList.add("active");
       wbState.stress = parseInt(btn.dataset.val);
     };
   });
 
-  // Toggle buttons (exercise)
+  // Exercise
   document.querySelectorAll(".wb-toggle-btn").forEach(btn => {
     btn.onclick = () => {
-      const group = btn.dataset.group;
-      document.querySelectorAll(`.wb-toggle-btn[data-group="${group}"]`).forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(`.wb-toggle-btn[data-group="${btn.dataset.group}"]`).forEach(b=>b.classList.remove("active"));
       btn.classList.add("active");
-      wbState[group] = btn.dataset.val;
+      wbState[btn.dataset.group] = btn.dataset.val;
     };
   });
 
-  // Sliders for sleep and water
+  // Sliders
   const sleepSlider = document.getElementById("sleepSlider");
   const waterSlider = document.getElementById("waterSlider");
   if (sleepSlider) {
-    sleepSlider.value = wbState.sleep || 7;
-    sleepSlider.oninput = () => {
-      wbState.sleep = parseFloat(sleepSlider.value);
-      const el = document.getElementById("sleepVal");
-      if (el) el.textContent = wbState.sleep;
-    };
+    sleepSlider.value = wbState.sleep ?? 7;
+    sleepSlider.oninput = () => { wbState.sleep = parseFloat(sleepSlider.value); document.getElementById("sleepVal").textContent = wbState.sleep; };
   }
   if (waterSlider) {
-    waterSlider.value = wbState.water || 6;
-    waterSlider.oninput = () => {
-      wbState.water = parseInt(waterSlider.value);
-      const el = document.getElementById("waterVal");
-      if (el) el.textContent = wbState.water;
-    };
+    waterSlider.value = wbState.water ?? 6;
+    waterSlider.oninput = () => { wbState.water = parseInt(waterSlider.value); document.getElementById("waterVal").textContent = wbState.water; };
   }
 
   // Save
@@ -207,81 +209,47 @@ export async function initWellbeing() {
     const btn = document.getElementById("wbSaveBtn");
     const msg = document.getElementById("wbSaveMsg");
     wbState.note = document.getElementById("wbNote")?.value || "";
-    btn.disabled = true;
-    btn.textContent = "Saving…";
+    btn.disabled = true; btn.textContent = "Saving…";
     try {
       await saveEntry(wbState);
-      msg.textContent = "✓ Saved!";
-      msg.style.color = "var(--accent)";
-      // Reload history
-      loadAndRenderHistory();
+      msg.textContent = "✓ Saved!"; msg.style.color = "var(--accent)";
+      setTimeout(()=>{ msg.textContent = ""; }, 3000);
     } catch(e) {
-      msg.textContent = "Failed to save: " + e.message;
-      msg.style.color = "#ef4444";
+      msg.textContent = "Failed: " + e.message; msg.style.color = "#ef4444";
     }
-    btn.disabled = false;
-    btn.textContent = "Save Check-in ✓";
-    setTimeout(() => { msg.textContent = ""; }, 3000);
+    btn.disabled = false; btn.textContent = "Save Check-in ✓";
   };
 
   // AI check-in
-  document.getElementById("wbAiBtn").onclick = () => generateAiInsight();
+  document.getElementById("wbAiBtn").onclick = generateAiInsight;
 
-  // Load history
-  loadAndRenderHistory();
+  // Wellbeing SWOT
+  document.getElementById("wbSwotBtn")?.addEventListener("click", generateWellbeingSwot);
 }
 
 function applyState(entry) {
   wbState = { ...wbState, ...entry };
-
-  // Restore emoji buttons
   ["mood","energy"].forEach(group => {
     if (entry[group]) {
       const btn = document.querySelector(`.wb-emoji-btn[data-group="${group}"][data-val="${entry[group]}"]`);
       if (btn) btn.classList.add("active");
     }
   });
-
-  // Stress
   if (entry.stress) {
     const btn = document.querySelector(`.wb-stress-btn[data-val="${entry.stress}"]`);
     if (btn) btn.classList.add("active");
   }
-
-  // Sliders
-  if (entry.sleep != null) {
-    wbState.sleep = entry.sleep;
-    const sl = document.getElementById("sleepSlider");
-    const el = document.getElementById("sleepVal");
-    if (sl) sl.value = entry.sleep;
-    if (el) el.textContent = entry.sleep;
-  }
-  if (entry.water != null) {
-    wbState.water = entry.water;
-    const sl = document.getElementById("waterSlider");
-    const el = document.getElementById("waterVal");
-    if (sl) sl.value = entry.water;
-    if (el) el.textContent = entry.water;
-  }
-
-  // Exercise
-  if (entry.exercise) {
-    const btn = document.querySelector(`.wb-toggle-btn[data-group="exercise"][data-val="${entry.exercise}"]`);
-    if (btn) btn.classList.add("active");
-  }
-
-  // Note
-  const noteEl = document.getElementById("wbNote");
-  if (noteEl && entry.note) noteEl.value = entry.note;
+  const sleepSl = document.getElementById("sleepSlider");
+  const waterSl = document.getElementById("waterSlider");
+  if (entry.sleep != null) { wbState.sleep = entry.sleep; if (sleepSl) sleepSl.value = entry.sleep; document.getElementById("sleepVal").textContent = entry.sleep; }
+  if (entry.water != null) { wbState.water = entry.water; if (waterSl) waterSl.value = entry.water; document.getElementById("waterVal").textContent = entry.water; }
+  if (entry.exercise) { const btn = document.querySelector(`.wb-toggle-btn[data-val="${entry.exercise}"]`); if (btn) btn.classList.add("active"); }
+  const noteEl = document.getElementById("wbNote"); if (noteEl && entry.note) noteEl.value = entry.note;
 }
 
 async function loadAndRenderHistory() {
-  const history = await loadHistory(14).catch(() => []);
-  if (!history.length) return;
-
-  const card = document.getElementById("wbHistoryCard");
-  if (card) card.style.display = "block";
-
+  const history = await loadHistory(14).catch(()=>[]);
+  if (!history.length) { document.getElementById("wbHistoryList").innerHTML = "<p style='color:var(--muted);font-size:13px;text-align:center;padding:20px'>No history yet — save your first check-in above.</p>"; return; }
   renderMoodChart(history);
   renderHistoryList(history);
 }
@@ -289,131 +257,123 @@ async function loadAndRenderHistory() {
 function renderMoodChart(history) {
   const canvas = document.getElementById("wbMoodChart");
   if (!canvas) return;
-  const ctx  = canvas.getContext("2d");
-  const w    = canvas.offsetWidth || 600;
-  canvas.width  = w;
-  canvas.height = 80;
-
-  const moods  = history.map(h => h.mood || 4);
-  const energy = history.map(h => h.energy || 3);
-  const n      = moods.length;
-  const pad    = 24;
-  const xStep  = (w - pad*2) / Math.max(n-1, 1);
-
+  const ctx = canvas.getContext("2d");
+  const w = canvas.offsetWidth || 600; canvas.width = w; canvas.height = 100;
+  const moods   = history.map(h=>h.mood||4);
+  const energy  = history.map(h=>h.energy||3);
+  const stress  = history.map(h=>h.stress||3);
+  const n = moods.length; const pad = 24; const xStep = (w-pad*2)/Math.max(n-1,1);
   const drawLine = (data, color, max) => {
-    ctx.beginPath();
-    ctx.strokeStyle = color;
-    ctx.lineWidth   = 2;
-    ctx.lineJoin    = "round";
-    data.forEach((v, i) => {
-      const x = pad + i * xStep;
-      const y = 70 - ((v / max) * 55);
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    });
+    ctx.beginPath(); ctx.strokeStyle=color; ctx.lineWidth=2; ctx.lineJoin="round";
+    data.forEach((v,i)=>{ const x=pad+i*xStep; const y=90-((v/max)*75); i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
     ctx.stroke();
-
-    // Dots
-    data.forEach((v, i) => {
-      const x = pad + i * xStep;
-      const y = 70 - ((v / max) * 55);
-      ctx.beginPath();
-      ctx.arc(x, y, 3, 0, Math.PI*2);
-      ctx.fillStyle = color;
-      ctx.fill();
-    });
+    data.forEach((v,i)=>{ const x=pad+i*xStep; const y=90-((v/max)*75); ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2); ctx.fillStyle=color; ctx.fill(); });
   };
-
-  ctx.clearRect(0, 0, w, 80);
-  drawLine(moods, "var(--accent, #00c87a)", 7);
-  drawLine(energy, "rgba(249,115,22,0.8)", 6);
-
-  // Legend
-  ctx.font = "10px sans-serif";
-  ctx.fillStyle = "var(--accent, #00c87a)";
-  ctx.fillText("Mood", pad, 12);
-  ctx.fillStyle = "rgba(249,115,22,0.9)";
-  ctx.fillText("Energy", pad + 48, 12);
+  ctx.clearRect(0,0,w,100);
+  drawLine(moods,"var(--accent,#00c87a)",7);
+  drawLine(energy,"rgba(249,115,22,0.8)",6);
+  drawLine(stress,"rgba(239,68,68,0.7)",5);
 }
 
 function renderHistoryList(history) {
-  const list = document.getElementById("wbHistoryList");
-  if (!list) return;
+  const list = document.getElementById("wbHistoryList"); if (!list) return;
   const moodEmojis   = ["","😞","😔","😐","🙂","😊","😄","🤩"];
   const energyEmojis = ["","🪫","😴","🐢","⚡","🔋","🚀"];
   const stressColors = ["","#22c55e","#86efac","#f59e0b","#f97316","#ef4444"];
-
-  list.innerHTML = [...history].reverse().slice(0, 7).map(h => `
+  list.innerHTML = [...history].reverse().slice(0,7).map(h=>`
     <div class="wb-hist-row">
       <div class="wb-hist-date">${new Date(h.date).toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</div>
       <div class="wb-hist-icons">
-        ${h.mood   ? `<span title="Mood">${moodEmojis[h.mood]}</span>` : ""}
-        ${h.energy ? `<span title="Energy">${energyEmojis[h.energy]}</span>` : ""}
-        ${h.stress ? `<span class="wb-hist-stress" style="background:${stressColors[h.stress]}" title="Stress ${h.stress}/5">${h.stress}</span>` : ""}
-        ${h.sleep  != null ? `<span class="wb-hist-pill">💤 ${h.sleep}h</span>` : ""}
-        ${h.water  != null ? `<span class="wb-hist-pill">💧 ${h.water}</span>` : ""}
-        ${h.exercise && h.exercise !== "None" ? `<span class="wb-hist-pill">🏃 ${h.exercise}</span>` : ""}
+        ${h.mood?`<span title="Mood">${moodEmojis[h.mood]}</span>`:""}
+        ${h.energy?`<span title="Energy">${energyEmojis[h.energy]}</span>`:""}
+        ${h.stress?`<span class="wb-hist-stress" style="background:${stressColors[h.stress]}" title="Stress ${h.stress}/5">${h.stress}</span>`:""}
+        ${h.sleep!=null?`<span class="wb-hist-pill">💤 ${h.sleep}h</span>`:""}
+        ${h.water!=null?`<span class="wb-hist-pill">💧 ${h.water}</span>`:""}
+        ${h.exercise&&h.exercise!=="None"?`<span class="wb-hist-pill">🏃 ${h.exercise}</span>`:""}
       </div>
-      ${h.note ? `<div class="wb-hist-note">${h.note}</div>` : ""}
-    </div>
-  `).join("");
+      ${h.note?`<div class="wb-hist-note">${h.note}</div>`:""}
+    </div>`).join("");
 }
 
 async function generateAiInsight() {
   const btn  = document.getElementById("wbAiBtn");
   const card = document.getElementById("wbAiCard");
   const body = document.getElementById("wbAiBody");
-  if (!card || !body) return;
-
-  btn.disabled = true;
-  btn.textContent = "✦ Thinking…";
-  card.style.display = "block";
-  body.innerHTML = `<div style="opacity:0.5;font-style:italic">Analyzing your wellbeing data…</div>`;
-
-  const history = await loadHistory(7).catch(() => []);
-  const today   = wbState;
-
+  if (!card||!body) return;
+  btn.disabled=true; btn.textContent="✦ Thinking…";
+  card.style.display="block";
+  body.innerHTML=`<div style="opacity:0.5;font-style:italic">Analyzing your wellbeing…</div>`;
+  const history = await loadHistory(7).catch(()=>[]);
   const moodLabels   = ["","Terrible","Bad","Meh","Okay","Good","Great","Amazing"];
   const energyLabels = ["","Drained","Tired","Low","Okay","Good","Energized"];
-
-  const prompt = `You are a supportive wellbeing coach. Based on this data, write a brief, warm, personalized check-in response.
-
-Today: mood=${moodLabels[today.mood]||"not set"}, energy=${energyLabels[today.energy]||"not set"}, stress=${today.stress||"?"}/5, sleep=${today.sleep}h, water=${today.water} glasses, exercise=${today.exercise}, note="${today.note||"none"}".
-
-Last 7 days trend: ${history.map(h => `${h.date}: mood=${h.mood||"?"}/7 energy=${h.energy||"?"}/6 stress=${h.stress||"?"}/5 sleep=${h.sleep||"?"}h`).join("; ")||"no history yet"}.
-
-Write 3 short paragraphs (no headers, no bullets, plain text):
-1. Acknowledge how they're feeling today with empathy
-2. One specific observation about their recent trend (positive or constructive)
-3. One practical, kind suggestion for today
-
-Keep it under 120 words total. Sound like a caring friend, not a robot.`;
-
+  const prompt = `You are a warm, supportive wellbeing coach. Give a brief, personalized check-in.
+Today: mood=${moodLabels[wbState.mood]||"not set"}, energy=${energyLabels[wbState.energy]||"not set"}, stress=${wbState.stress||"?"}/5, sleep=${wbState.sleep}h, water=${wbState.water} glasses, exercise=${wbState.exercise||"None"}, note="${wbState.note||"none"}".
+Last 7 days: ${history.map(h=>`${h.date}: mood=${h.mood||"?"}/7 energy=${h.energy||"?"}/6 stress=${h.stress||"?"}/5 sleep=${h.sleep||"?"}h`).join("; ")||"no history"}.
+Write 3 short paragraphs (plain text, no headers): 1) acknowledge today's feeling with empathy, 2) one observation about their trend, 3) one kind practical suggestion. Under 100 words total.`;
   try {
     const text = await askGemini(prompt, 300);
-    body.innerHTML = text.split("\n\n").filter(Boolean)
-      .map(p => `<p style="margin:0 0 12px">${p.trim()}</p>`).join("");
+    body.innerHTML = text.split("\n\n").filter(Boolean).map(p=>`<p style="margin:0 0 12px">${p.trim()}</p>`).join("");
   } catch(e) {
-    body.innerHTML = `<div style="color:#ef4444">Could not generate insight: ${e.message}</div>`;
+    body.innerHTML = `<div style="color:#ef4444">⚠ ${e.message}</div>`;
   }
-
-  btn.disabled = false;
-  btn.textContent = "✦ AI Check-in";
+  btn.disabled=false; btn.textContent="✦ AI Check-in";
 }
 
-// ── Export for report integration ─────────────────────────────
-export async function getWellbeingForReport(days = 7) {
-  const history = await loadHistory(days).catch(() => []);
+async function generateWellbeingSwot() {
+  const btn = document.getElementById("wbSwotBtn");
+  const result = document.getElementById("wbSwotResult");
+  btn.disabled=true; btn.textContent="⚡ Analyzing…";
+  result.style.display="none";
+  const history = await loadHistory(14).catch(()=>[]);
+  if (!history.length && !wbState.mood) {
+    btn.disabled=false; btn.textContent="⚡ Generate Wellbeing SWOT";
+    document.querySelector(".wb-swot-intro p").textContent = "⚠ Fill in today's check-in first so the AI has data to analyze.";
+    return;
+  }
+  const avg = (arr) => { const v=arr.filter(Boolean); return v.length?(v.reduce((a,b)=>a+b,0)/v.length).toFixed(1):null; };
+  const avgMood   = avg(history.map(h=>h.mood));
+  const avgEnergy = avg(history.map(h=>h.energy));
+  const avgStress = avg(history.map(h=>h.stress));
+  const avgSleep  = avg(history.map(h=>h.sleep));
+  const prompt = `Based on this person's 14-day wellbeing data, create a personal SWOT analysis for their health and mindset.
+Data: avg mood=${avgMood||wbState.mood||"?"}/7, avg energy=${avgEnergy||wbState.energy||"?"}/6, avg stress=${avgStress||wbState.stress||"?"}/5, avg sleep=${avgSleep||wbState.sleep||"?"}h.
+Today: mood=${wbState.mood||"?"}/7, energy=${wbState.energy||"?"}/6, stress=${wbState.stress||"?"}/5, exercise=${wbState.exercise||"None"}.
+Recent notes: ${history.filter(h=>h.note).slice(-3).map(h=>h.note).join("; ")||"none"}.
+
+Return ONLY valid JSON:
+{"strengths":["2-3 items about what's going well for their wellbeing"],"weaknesses":["2-3 items about what's draining them"],"opportunities":["2 items they could improve"],"threats":["2 items that could worsen their wellbeing"],"summary":"2-sentence actionable summary"}`;
+  try {
+    // Use askGemini + manual parse for wellbeing SWOT
+    const raw = await askGemini(prompt + "\n\nIMPORTANT: Output ONLY the JSON object.", 500);
+    let clean = raw.trim().replace(/^```(?:json)?\s*/gm,"").replace(/^```\s*$/gm,"").trim();
+    const start = clean.indexOf("{"); if (start > 0) clean = clean.slice(start);
+    const end = clean.lastIndexOf("}"); if (end >= 0) clean = clean.slice(0, end+1);
+    const data = JSON.parse(clean);
+    const renderItems = (arr) => (arr||[]).map(i=>`<div class="wb-swot-item">${i}</div>`).join("");
+    document.getElementById("wbSwotS").innerHTML = renderItems(data.strengths);
+    document.getElementById("wbSwotW").innerHTML = renderItems(data.weaknesses);
+    document.getElementById("wbSwotO").innerHTML = renderItems(data.opportunities);
+    document.getElementById("wbSwotT").innerHTML = renderItems(data.threats);
+    document.getElementById("wbSwotSummary").innerHTML = data.summary ? `<p style="font-size:13px;color:var(--muted);margin-top:12px;line-height:1.6">${data.summary}</p>` : "";
+    result.style.display = "block";
+  } catch(e) {
+    document.querySelector(".wb-swot-intro p").textContent = `⚠ ${e.message}`;
+  }
+  btn.disabled=false; btn.textContent="⚡ Regenerate SWOT";
+}
+
+// ── Export for report integration ────────────────────────────
+export async function getWellbeingForReport(days=7) {
+  const history = await loadHistory(days).catch(()=>[]);
   if (!history.length) return null;
-  const avg = arr => arr.filter(Boolean).length
-    ? (arr.filter(Boolean).reduce((a,b) => a+b, 0) / arr.filter(Boolean).length).toFixed(1)
-    : null;
+  const avg = arr => { const v=arr.filter(Boolean); return v.length?(v.reduce((a,b)=>a+b,0)/v.length).toFixed(1):null; };
   return {
-    avgMood:   avg(history.map(h => h.mood)),
-    avgEnergy: avg(history.map(h => h.energy)),
-    avgStress: avg(history.map(h => h.stress)),
-    avgSleep:  avg(history.map(h => h.sleep)),
-    avgWater:  avg(history.map(h => h.water)),
+    avgMood:   avg(history.map(h=>h.mood)),
+    avgEnergy: avg(history.map(h=>h.energy)),
+    avgStress: avg(history.map(h=>h.stress)),
+    avgSleep:  avg(history.map(h=>h.sleep)),
+    avgWater:  avg(history.map(h=>h.water)),
     entries:   history.length,
-    latest:    history[history.length - 1]
+    latest:    history[history.length-1]
   };
 }

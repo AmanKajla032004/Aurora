@@ -132,9 +132,23 @@ export async function initHome() {
     else if (i > 0) break;
   }
 
-  // Completion rate today
-  const todayTasks = tasks.filter(t => t.type === "daily");
-  const pct = todayTasks.length ? Math.round((doneToday / todayTasks.length) * 100) : 0;
+  // Today's progress ring: daily tasks + anything due on or before today
+  const todayDateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+  const todayTasks = tasks.filter(t => {
+    if (t.completed && t.completedAt) {
+      // include completed tasks that were done today
+      const cd = new Date(t.completedAt.seconds ? t.completedAt.seconds*1000 : t.completedAt);
+      if (cd.toDateString() === now.toDateString()) return true;
+    }
+    if (t.type === "daily") return true;
+    if (!t.dueDate) return false;
+    const dd = t.dueDate.slice(0, 10);
+    return dd <= todayDateStr; // due today or overdue
+  });
+  // Deduplicate by id
+  const todayTasksUniq = [...new Map(todayTasks.map(t => [t.id, t])).values()];
+  const todayDone = todayTasksUniq.filter(t => t.completed).length;
+  const pct = todayTasksUniq.length ? Math.round((todayDone / todayTasksUniq.length) * 100) : 0;
 
   // Focus tasks
   const focus = tasks.filter(t => !t.completed).sort((a,b)=>(b.priority||0)-(a.priority||0)).slice(0,4);
@@ -174,7 +188,7 @@ export async function initHome() {
       </svg>
       <div class="home-ring-label">
         <span class="home-ring-pct">${pct}%</span>
-        <span class="home-ring-sub">today</span>
+        <span class="home-ring-sub">${todayDone}/${todayTasksUniq.length} done</span>
       </div>
     </div>
   `;

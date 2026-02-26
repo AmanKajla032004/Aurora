@@ -1,4 +1,6 @@
 import { getTasksFromCloud } from "../firebase/firestoreService.js";
+import { askGemini } from "../gemini.js";
+import { getWellbeingForReport } from "./wellbeingView.js";
 
 export function renderAnalytics() {
   return `
@@ -86,10 +88,26 @@ export function renderAnalytics() {
     </div>
   </div>
 
-  <!-- 8. TASK TYPE MIX — least critical, shown last -->
+  <!-- 8. TASK TYPE MIX -->
   <div class="chart-card" style="position:relative;min-height:240px">
     <h3>Task Type Distribution</h3>
     <canvas id="typeChart"></canvas>
+  </div>
+
+  <!-- 9. AI ANALYSIS — wellbeing-aware -->
+  <div class="chart-card analytics-ai-card" id="analyticsAiCard">
+    <div class="analytics-ai-header">
+      <div>
+        <h3 style="margin:0 0 4px">✦ AI Analysis</h3>
+        <p style="margin:0;font-size:12px;color:var(--muted)">Combines your tasks + wellbeing for a full picture</p>
+      </div>
+      <button class="analytics-ai-btn" id="analyticsAiBtn">Generate Analysis</button>
+    </div>
+    <div id="analyticsAiNudge" class="analytics-ai-nudge" style="display:none">
+      💙 <strong>Tip:</strong> Fill in today's <a href="#" id="analyticsGoWellbeing" style="color:var(--accent)">Wellbeing check-in</a> for a richer, more personalized analysis.
+      <button id="analyticsSkipWb" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:12px;text-decoration:underline;padding:0 0 0 8px">Skip</button>
+    </div>
+    <div id="analyticsAiBody" class="analytics-ai-body" style="display:none"></div>
   </div>
 
 </div>`;
@@ -304,6 +322,90 @@ export async function initAnalytics() {
           <div class="insight-body">${ins.body}</div>
         </div>
       </div>`).join("");
+  }
+
+  // ---- AI ANALYSIS BUTTON ----
+  const aiBtn  = document.getElementById("analyticsAiBtn");
+  const aiBod  = document.getElementById("analyticsAiBody");
+  const aiNudge = document.getElementById("analyticsAiNudge");
+
+  // Navigation links inside nudge
+  document.getElementById("analyticsGoWellbeing")?.addEventListener("click", e => {
+    e.preventDefault();
+    import("../router.js").then(({ navigate }) => navigate("wellbeing"));
+  });
+  document.getElementById("analyticsSkipWb")?.addEventListener("click", () => {
+    if (aiNudge) aiNudge.style.display = "none";
+    runAnalyticsAI(tasks, streak, rate, maxStreak, totalDone, bestDay, null);
+  });
+
+  if (aiBtn) {
+    aiBtn.onclick = async () => {
+      aiBtn.disabled = true;
+      aiBtn.textContent = "Analyzing…";
+      if (aiBod) { aiBod.style.display = "block"; aiBod.innerHTML = `<div style="opacity:0.5;font-style:italic">Fetching data…</div>`; }
+
+      // Check wellbeing
+      let wellbeing = null;
+      try { wellbeing = await getWellbeingForReport(7); } catch(e) {}
+
+      if (!wellbeing) {
+        // Show nudge but still allow proceeding
+        if (aiNudge) aiNudge.style.display = "flex";
+        if (aiBod) aiBod.style.display = "none";
+        aiBtn.disabled = false;
+        aiBtn.textContent = "Generate Analysis";
+        return;
+      }
+
+      if (aiNudge) aiNudge.style.display = "none";
+      await runAnalyticsAI(tasks, streak, rate, maxStreak, totalDone, bestDay, wellbeing);
+      aiBtn.disabled = false;
+      aiBtn.textContent = "Regenerate";
+    };
+  }
+}
+
+async function runAnalyticsAI(tasks, streak, rate, maxStreak, totalDone, bestDay, wellbeing) {
+  const aiBod = document.getElementById("analyticsAiBody");
+  if (!aiBod) return;
+  aiBod.style.display = "block";
+  aiBod.innerHTML = `<div style="opacity:0.5;font-style:italic">✦ Analyzing your productivity…</div>`;
+
+  const overdue  = tasks.filter(t => !t.completed && t.dueDate && new Date(t.dueDate) < new Date()).length;
+  const pending  = tasks.filter(t => !t.completed).length;
+  const topTasks = tasks.filter(t => !t.completed).sort((a,b) => (b.priority||0)-(a.priority||0)).slice(0,3).map(t=>t.title).join(", ");
+
+  const wbSection = wellbeing ? `
+Wellbeing (last 7 days):
+- Avg mood: ${wellbeing.avgMood}/7, avg energy: ${wellbeing.avgEnergy}/6, avg stress: ${wellbeing.avgStress}/5
+- Avg sleep: ${wellbeing.avgSleep}h/night, avg water: ${wellbeing.avgWater} glasses/day
+- Days tracked: ${wellbeing.entries}` : "Wellbeing: not tracked this week";
+
+  const prompt = `You are a sharp, honest productivity coach. Analyze this person's week and give a personalized assessment.
+
+TASK DATA:
+- Current streak: ${streak} days, longest ever: ${maxStreak} days
+- Completion rate: ${Math.round(rate)}%, total done: ${totalDone}
+- Pending: ${pending}, overdue: ${overdue}
+- Top priorities pending: ${topTasks || "none"}
+- Best day: ${bestDay}
+${wbSection}
+
+Write 4 short paragraphs (no headers, plain text):
+1. Overall assessment — be direct and honest (2-3 sentences)
+2. What the data says about their energy/stress vs productivity pattern
+3. Their biggest opportunity right now (specific, actionable)
+4. One thing to protect or double down on
+
+Keep it under 180 words. Sound like a coach who knows them, not a generic motivator.`;
+
+  try {
+    const text = await askGemini(prompt, 500);
+    aiBod.innerHTML = text.split("\n\n").filter(Boolean)
+      .map(p => `<p class="analytics-ai-para">${p.trim()}</p>`).join("");
+  } catch(e) {
+    aiBod.innerHTML = `<div style="color:#ef4444;font-size:13px">⚠ ${e.message}</div>`;
   }
 }
 

@@ -6,10 +6,10 @@ import { db } from "./firebase/firebaseConfig.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const MODELS = [
-  "gemini-2.5-flash-lite",
-  "gemini-2.5-flash",
-  "gemini-2.0-flash",
-  "gemini-2.0-flash-lite",
+  "gemini-2.0-flash",          // most reliable free tier
+  "gemini-2.0-flash-lite",     // fallback
+  "gemini-1.5-flash",          // stable fallback
+  "gemini-1.5-flash-8b",       // smallest/fastest fallback
 ];
 
 const BASE = "https://generativelanguage.googleapis.com/v1beta/models";
@@ -73,7 +73,10 @@ export async function askGemini(prompt, maxTokens = 900) {
         body
       });
       data = await res.json();
-    } catch { continue; }
+    } catch(fetchErr) {
+      console.warn(`Model ${model} fetch error:`, fetchErr.message);
+      continue;
+    }
 
     if (res.ok) {
       const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -112,66 +115,54 @@ export async function askGemini(prompt, maxTokens = 900) {
 
   if (rateLimited.length > 0) {
     throw new Error(
-      "Daily quota reached.\n\n" +
-      "Free limits: gemini-2.5-flash-lite = 1000/day, gemini-2.5-flash = 250/day\n" +
-      "Options:\n" +
-      "• Wait until midnight Pacific time (quota resets daily)\n" +
-      "• Get a fresh API key at aistudio.google.com → save via saveApiKey.html"
+      "Quota reached for today. Wait until tomorrow or get a new key at aistudio.google.com"
     );
   }
 
-  throw new Error("AI request failed — open saveApiKey.html to update your key.");
+  throw new Error("All AI models failed. Check your API key at js/saveApiKey.html");
 }
 
 export async function askGeminiJSON(prompt, maxTokens = 600) {
-  // Very explicit instruction — models still sometimes wrap in markdown
-  const full = prompt + "\n\nCRITICAL: Respond ONLY with raw JSON. No markdown. No backticks. No code fences. No explanation. Start your response with { or [ immediately.";
-  const raw  = await askGemini(full, maxTokens);
+  const cleanJSON = (raw) => {
+    if (!raw) return null;
+    let s = raw.trim();
+    // Remove all code fences
+    s = s.replace(/^```(?:json|JSON)?\s*/gm, "").replace(/^```\s*$/gm, "").trim();
+    // Find where JSON starts
+    const start = s.search(/[\[{]/);
+    if (start > 0) s = s.slice(start);
+    // Find where JSON ends (last closing brace/bracket)
+    const lastObj = s.lastIndexOf("}");
+    const lastArr = s.lastIndexOf("]");
+    const end = Math.max(lastObj, lastArr);
+    if (end >= 0 && end < s.length - 1) s = s.slice(0, end + 1);
+    return s.trim();
+  };
 
-  // Multi-stage cleaning
-  let clean = raw.trim();
-
-  // Strip markdown code fences (```json ... ``` or ``` ... ```)
-  clean = clean.replace(/^```(?:json|JSON)?\s*/m, "").replace(/\s*```\s*$/m, "").trim();
-
-  // Strip leading prose before JSON starts (e.g. "Here is the JSON:")
-  const jsonStart = clean.search(/[[{]/);
-  if (jsonStart > 0) clean = clean.slice(jsonStart);
-
-  // Strip trailing prose after JSON ends
-  const lastBrace  = clean.lastIndexOf("}");
-  const lastBracket = clean.lastIndexOf("]");
-  const jsonEnd = Math.max(lastBrace, lastBracket);
-  if (jsonEnd >= 0 && jsonEnd < clean.length - 1) clean = clean.slice(0, jsonEnd + 1);
-
-  // Try direct parse
-  try { return JSON.parse(clean); } catch(e1) {}
-
-  // Try extracting largest JSON block
-  const objectMatch  = clean.match(/\{[\s\S]*\}/);
-  const arrayMatch   = clean.match(/\[[\s\S]*\]/);
-  const candidates   = [objectMatch?.[0], arrayMatch?.[0]].filter(Boolean);
-
-  for (const candidate of candidates) {
-    try { return JSON.parse(candidate); } catch {}
+  // First attempt
+  const raw1 = await askGemini(
+    prompt + "\n\nIMPORTANT: Output ONLY valid JSON, starting with { or [. No markdown, no explanation.",
+    maxTokens
+  );
+  const c1 = cleanJSON(raw1);
+  if (c1) {
+    try { return JSON.parse(c1); } catch {}
+    // Try regex extraction
+    const m1 = c1.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+    if (m1) try { return JSON.parse(m1[1]); } catch {}
   }
 
-  // Last resort: ask again with even stricter prompt
-  try {
-    const retry = await askGemini(
-      prompt + "\n\nReturn ONLY the JSON object/array. No text before or after. No backticks.",
-      maxTokens
-    );
-    const r = retry.trim().replace(/^```(?:json)?\s*/m, "").replace(/\s*```\s*$/m, "").trim();
-    return JSON.parse(r);
-  } catch {}
+  // Second attempt — even more explicit
+  const raw2 = await askGemini(
+    "Output ONLY a JSON object or array, nothing else. No text, no markdown.\n\n" + prompt,
+    maxTokens
+  );
+  const c2 = cleanJSON(raw2);
+  if (c2) {
+    try { return JSON.parse(c2); } catch {}
+    const m2 = c2.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+    if (m2) try { return JSON.parse(m2[1]); } catch {}
+  }
 
-  throw new Error("AI returned invalid JSON — please try again.");
-}
-
-// Expose a way to update the key at runtime (used by saveApiKey.html)
-export async function saveKeyToFirestore(newKey) {
-  const { setDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
-  await setDoc(doc(db, "appConfig", "gemini"), { key: newKey, updatedAt: new Date().toISOString() });
-  _cachedKey = newKey;
+  throw new Error("AI response could not be parsed — please try again.");
 }
