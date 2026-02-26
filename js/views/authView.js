@@ -1,13 +1,11 @@
 import { register, login, loginWithGoogle, sendPasswordReset, verifyEmail, logout } from "../firebase/authService.js";
-import { auth } from "../firebase/firebaseConfig.js";
-import { deleteUser } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 let mode = "login";
 
 export function initAuthLogic(onSuccess) {
-  const hero     = document.getElementById("hero");
-  const modal    = document.getElementById("authModal");
-  const errorMsg = document.getElementById("authError");
+  const hero      = document.getElementById("hero");
+  const modal     = document.getElementById("authModal");
+  const errorMsg  = document.getElementById("authError");
 
   function showError(msg) { if (errorMsg) errorMsg.textContent = msg; }
   function clearError()   { if (errorMsg) errorMsg.textContent = ""; }
@@ -29,20 +27,6 @@ export function initAuthLogic(onSuccess) {
     document.getElementById("authPanelVerify").style.display = panel === "verify" ? "flex" : "none";
   }
 
-  function enterApp() {
-    if (onSuccess) onSuccess();
-    document.getElementById("authLayer").style.display    = "none";
-    document.getElementById("appContainer").style.display = "flex";
-  }
-
-  function showVerifyPanel(email, msg) {
-    document.getElementById("authTitle").textContent = "VERIFY YOUR EMAIL";
-    const msgEl = document.getElementById("verifyMsg");
-    msgEl.textContent = msg;
-    msgEl.style.color = "var(--muted)";
-    showAuthPanel("verify");
-  }
-
   document.getElementById("loginEntry").onclick    = () => openModal("login");
   document.getElementById("registerEntry").onclick = () => openModal("register");
 
@@ -57,52 +41,38 @@ export function initAuthLogic(onSuccess) {
     const email = document.getElementById("authEmail").value.trim();
     const pass  = document.getElementById("authPassword").value;
     if (!email || !pass) { showError("Please enter your email and password."); return; }
-
-    const btn = document.getElementById("primaryAuthBtn");
-    btn.disabled = true;
-    btn.textContent = "Please wait…";
-    clearError();
-
     try {
+      clearError();
       if (mode === "login") {
-        // ── LOGIN ── sign in, check verification, block if not verified
         const cred = await login(email, pass);
-
-        if (!cred.user.emailVerified) {
-          await logout(); // kick them out
-          showVerifyPanel(email,
-            `Your email ${email} is not verified yet. Check your inbox for the verification link and click it, then sign in here.`
-          );
-          btn.disabled = false;
-          btn.textContent = "Sign In";
-          return;
+        // Login always succeeds if credentials are correct.
+        // Email verification is optional — we show a soft banner inside the app
+        // but don't block access, since Firebase email delivery can be unreliable.
+        if (onSuccess) onSuccess();
+        const authLayer = document.getElementById("authLayer");
+        const appContainer = document.getElementById("appContainer");
+        if (authLayer && appContainer) {
+          authLayer.style.display = "none";
+          appContainer.style.display = "flex";
         }
-
-        enterApp();
-
       } else {
-        // ── SIGN UP ──
-        // Step 1: Create account
+        // Registration: create account → let them in immediately
+        // Attempt to send verification email but don't block on it
         const cred = await register(email, pass);
-
-        // Step 2: Send verification email
-        try { await verifyEmail(); } catch(e) { /* ignore — gmail may delay */ }
-
-        // Step 3: Sign them OUT immediately — they must verify before entering
-        await logout();
-
-        // Step 4: Show verify screen
-        showVerifyPanel(email,
-          `Account created! A verification link was sent to ${email}. Click it in your inbox, then come back and sign in.`
-        );
+        try { await verifyEmail(); } catch(e) { /* ignore - email may fail */ }
+        // Log them straight in
+        if (onSuccess) onSuccess();
+        const authLayerEl = document.getElementById("authLayer");
+        const appContainerEl = document.getElementById("appContainer");
+        if (authLayerEl && appContainerEl) {
+          authLayerEl.style.display = "none";
+          appContainerEl.style.display = "flex";
+        }
       }
-
     } catch (err) {
+      console.error("Auth error:", err.code, err.message);
       showError(friendlyError(err.code));
     }
-
-    btn.disabled = false;
-    btn.textContent = mode === "login" ? "Sign In" : "Create Account";
   };
 
   // Resend verification email
@@ -110,60 +80,59 @@ export function initAuthLogic(onSuccess) {
     const email = document.getElementById("authEmail").value.trim();
     const pass  = document.getElementById("authPassword").value;
     const msg   = document.getElementById("verifyMsg");
-    msg.textContent = "Sending…"; msg.style.color = "var(--muted)";
     try {
+      // Re-login briefly to resend
       const cred = await login(email, pass);
-      if (cred.user.emailVerified) {
-        // Already verified — let them in
-        enterApp(); return;
+      if (!cred.user.emailVerified) {
+        await verifyEmail();
+        await logout();
+        msg.textContent = "Verification email resent!";
+        msg.style.color = "#00c87a";
+      } else {
+        // Already verified — log them in
+        msg.textContent = "Email verified! Signing in…";
+        msg.style.color = "#00c87a";
+        setTimeout(() => { if (onSuccess) onSuccess(); }, 800);
       }
-      await verifyEmail();
-      await logout();
-      msg.textContent = "✓ New verification link sent! Check your inbox.";
-      msg.style.color = "#00c87a";
     } catch(e) {
-      msg.textContent = "Check your email and password then try again.";
+      msg.textContent = "Couldn't resend — try again.";
       msg.style.color = "#ef4444";
     }
   };
 
-  // "I've clicked the link" — re-login and check
+  // "Already verified" / check button
   document.getElementById("checkVerifyBtn").onclick = async () => {
     const email = document.getElementById("authEmail").value.trim();
     const pass  = document.getElementById("authPassword").value;
     const msg   = document.getElementById("verifyMsg");
-    msg.textContent = "Checking…"; msg.style.color = "var(--muted)";
     try {
       const cred = await login(email, pass);
       if (cred.user.emailVerified) {
-        msg.textContent = "✓ Verified! Signing you in…";
+        msg.textContent = "✓ Email verified!";
         msg.style.color = "#00c87a";
-        setTimeout(enterApp, 700);
+        setTimeout(() => { if (onSuccess) onSuccess(); }, 600);
       } else {
         await logout();
-        msg.textContent = "Not verified yet — click the link in your email first.";
+        msg.textContent = "Not verified yet. Check your inbox.";
         msg.style.color = "#f59e0b";
       }
     } catch(e) {
-      msg.textContent = "Wrong email or password.";
+      msg.textContent = friendlyError(e.code);
       msg.style.color = "#ef4444";
     }
   };
 
   document.getElementById("backFromVerify").onclick = () => {
-    document.getElementById("authTitle").textContent = mode === "login" ? "WELCOME BACK" : "CREATE ACCOUNT";
+    document.getElementById("authTitle").textContent = "WELCOME BACK";
     showAuthPanel("main");
   };
 
   document.getElementById("googleBtn").onclick = async () => {
-    try {
-      clearError();
-      await loginWithGoogle();
-      // Google accounts are pre-verified
-      enterApp();
-    } catch (err) { showError(friendlyError(err.code)); }
+    try { clearError(); await loginWithGoogle(); if (onSuccess) onSuccess(); }
+    catch (err) { showError(friendlyError(err.code)); }
   };
 
+  // Forgot password flow
   document.getElementById("forgotLink").onclick = (e) => {
     e.preventDefault();
     document.getElementById("authTitle").textContent = "RESET PASSWORD";
@@ -196,6 +165,7 @@ export function initAuthLogic(onSuccess) {
     showAuthPanel("main");
   };
 
+  // Enter key support
   document.getElementById("authPassword").addEventListener("keydown", e => {
     if (e.key === "Enter") document.getElementById("primaryAuthBtn").click();
   });
@@ -205,16 +175,26 @@ export function initAuthLogic(onSuccess) {
 
 function friendlyError(code) {
   const map = {
-    "auth/user-not-found":       "No account found with that email.",
-    "auth/wrong-password":       "Incorrect password. Try again.",
-    "auth/invalid-credential":   "Incorrect email or password.",
-    "auth/email-already-in-use": "This email is already registered.",
-    "auth/weak-password":        "Password must be at least 6 characters.",
-    "auth/invalid-email":        "Please enter a valid email address.",
-    "auth/popup-closed-by-user": "Google sign-in was cancelled.",
-    "auth/too-many-requests":    "Too many attempts. Try again later.",
+    // Login errors
+    "auth/user-not-found":           "No account found with that email.",
+    "auth/wrong-password":           "Incorrect password. Try again.",
+    "auth/invalid-credential":       "Incorrect email or password.",
+    "auth/invalid-email":            "Please enter a valid email address.",
+    "auth/user-disabled":            "This account has been disabled.",
+    // Registration errors
+    "auth/email-already-in-use":     "This email is already registered. Try logging in.",
+    "auth/weak-password":            "Password must be at least 6 characters.",
+    "auth/operation-not-allowed":    "Email sign-up is not enabled yet. Contact the app owner.",
+    "auth/admin-restricted-operation":"Email sign-up is not enabled yet. Contact the app owner.",
+    // Network / other
+    "auth/network-request-failed":   "Network error — check your internet connection.",
+    "auth/too-many-requests":        "Too many attempts. Please wait a few minutes and try again.",
+    "auth/popup-closed-by-user":     "Google sign-in was cancelled.",
+    "auth/popup-blocked":            "Pop-up was blocked by the browser. Allow pop-ups and try again.",
+    "auth/cancelled-popup-request":  "Sign-in cancelled.",
+    "auth/internal-error":           "An internal error occurred. Please try again.",
   };
-  return map[code] || "Something went wrong. Please try again.";
+  return map[code] || `Something went wrong (${code || "unknown"}). Please try again.`;
 }
 
 function startAuroraBackground() {
