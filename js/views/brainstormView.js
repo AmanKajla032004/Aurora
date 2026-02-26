@@ -848,7 +848,7 @@ async function generateAiIdeas() {
   const userPrompt = promptEl?.value.trim();
   const existing   = (board?.ideas || []).map(i => i.text).slice(0, 10);
   const boardName  = board?.name || "brainstorm";
-  const boardDesc  = board?.desc || "";
+  const boardDesc  = board?.description || "";
 
   btn.disabled = true;
   btn.textContent = "Generating…";
@@ -856,8 +856,10 @@ async function generateAiIdeas() {
 
   const context = userPrompt
     ? `Topic/request: "${userPrompt}"`
-    : `Board name: "${boardName}"${boardDesc ? `
-Board description: "${boardDesc}"` : ""}${existing.length ? `
+    : boardDesc
+      ? `Topic: "${boardDesc}" (board named "${boardName}")${existing.length ? `
+Existing ideas: ${existing.join(", ")}` : ""}`
+      : `Board name: "${boardName}"${existing.length ? `
 Existing ideas: ${existing.join(", ")}` : ""}`;
 
   const prompt = `You are a creative brainstorming assistant. Generate 8-10 fresh, specific, actionable ideas.

@@ -183,17 +183,29 @@ function renderSections() {
   const activeDaily   = sortTasks(allTasks.filter(t=>(t.type==="daily"||t.type==="once")&&!t.completed));
   const activeWeekly  = sortTasks(allTasks.filter(t=>t.type==="weekly"&&!t.completed));
   const activeCustom  = sortTasks(allTasks.filter(t=>t.type==="custom"&&!t.completed));
-  const activeMissed  = sortTasks(allTasks.filter(t => {
-    if (t.completed || !t.dueDate) return false;
-    // Build deadline: if time set, use exact datetime; else end of that day (23:59:59)
-    let deadline;
-    if (t.dueTime) {
-      deadline = new Date(t.dueDate + "T" + t.dueTime);
+  // Helper: build deadline from dueDate + optional dueTime
+  // Handles "YYYY-MM-DD" strings correctly in all timezones
+  const buildDeadline = (dueDate, dueTime) => {
+    if (!dueDate) return null;
+    // Extract just the date part in case it's a full ISO string
+    const datePart = dueDate.length > 10 ? dueDate.slice(0, 10) : dueDate;
+    if (dueTime) {
+      // Combine date + time as LOCAL time (not UTC)
+      const [h, m] = dueTime.split(":").map(Number);
+      const d = new Date(datePart);
+      d.setHours(h, m, 0, 0);
+      return d;
     } else {
-      deadline = new Date(t.dueDate);
-      deadline.setHours(23, 59, 59, 999); // end of day — not midnight UTC
+      // No time set — deadline is end of that local day
+      const [y, mo, day] = datePart.split("-").map(Number);
+      return new Date(y, mo - 1, day, 23, 59, 59, 999); // LOCAL time, not UTC
     }
-    return deadline < now;
+  };
+
+  const activeMissed = sortTasks(allTasks.filter(t => {
+    if (t.completed || !t.dueDate) return false;
+    const deadline = buildDeadline(t.dueDate, t.dueTime);
+    return deadline && deadline < now;
   }));
   let completedTasks = [];
   if (completedFilter) {

@@ -108,15 +108,6 @@ function renderItems(quadrant) {
 
 function renderAllItems() { QUADRANTS.forEach(q => renderItems(q.key)); }
 function save() { localStorage.setItem("aurora_swot", JSON.stringify(swotData)); }
-function formatSwotAI(text) {
-  return text
-    .replace(/^(STRATEGIC OVERVIEW|KEY STRENGTHS TO LEVERAGE|CRITICAL WEAKNESSES TO ADDRESS|BIGGEST OPPORTUNITIES RIGHT NOW|THREATS TO WATCH|ACTION PLAN[^\n]*)$/gm,
-      '<div style="color:var(--accent);font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;margin:16px 0 6px;padding-bottom:4px;border-bottom:1px solid rgba(0,200,122,0.2)">$1</div>')
-    .replace(/^(\d+\.\s)/gm, '<span style="color:var(--accent);font-weight:700">$1</span>')
-    .replace(/\n\n/g, '</p><p style="margin:0 0 8px;line-height:1.65">')
-    .replace(/\n/g, '<br>');
-}
-
 function esc(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
 // Manual SWOT analysis of what user typed in
@@ -133,48 +124,24 @@ async function runManualAnalysis() {
 
   const hasData = QUADRANTS.some(q => swotData[q.key].length > 0);
 
-  const totalItems = QUADRANTS.reduce((sum, q) => sum + (swotData[q.key]?.length || 0), 0);
-
-  const prompt = hasData
-    ? `You are a strategic advisor and executive coach. Analyse this personal SWOT and write an insightful, specific strategic report.
+  const prompt = `You are a strategic advisor. Analyse this SWOT and give a concise strategic report in plain text (no markdown, no bullet symbols). 3-4 paragraphs. End with 3 concrete next steps labelled NEXT STEPS.
 
 STRENGTHS: ${swotData.strengths.join(", ") || "none"}
 WEAKNESSES: ${swotData.weaknesses.join(", ") || "none"}
 OPPORTUNITIES: ${swotData.opportunities.join(", ") || "none"}
 THREATS: ${swotData.threats.join(", ") || "none"}
 
-Write a structured report. Be specific — reference the actual items above by name. Be honest, encouraging, and actionable. Each section should be 2-4 sentences.
-
-Format EXACTLY like this (use these exact headers on their own line):
-
-STRATEGIC OVERVIEW
-[2-3 sentences summarising the overall picture — what kind of person/situation this looks like]
-
-KEY STRENGTHS TO LEVERAGE
-[How to use the strengths to capture the opportunities — be specific]
-
-CRITICAL WEAKNESSES TO ADDRESS
-[Which weaknesses are most urgent and why — be direct and honest]
-
-BIGGEST OPPORTUNITIES RIGHT NOW
-[Which opportunities align best with the strengths — what to pursue first]
-
-THREATS TO WATCH
-[Which threats are most real given the weaknesses — what could go wrong]
-
-ACTION PLAN — NEXT 30 DAYS
-1. [Specific action]
-2. [Specific action]
-3. [Specific action]`
-    : `Give a friendly guide on how to do an effective personal SWOT analysis. Explain what each quadrant should contain with 2-3 examples for each. Keep it practical and motivating. About 200 words.`;
+${!hasData ? "The user hasn't filled in their SWOT yet. Give general advice on how to do a productive SWOT analysis and what to focus on." : ""}`;
 
   try {
-    const text = await askGemini(prompt, 900);
+    const text = await askGemini(prompt, 700);
     titleEl.textContent = "✦ AI Strategic Analysis";
-    bodyEl.innerHTML = formatSwotAI(text);
+    bodyEl.textContent = text;
   } catch(err) {
     titleEl.textContent = "✦ AI Analysis";
-    bodyEl.textContent = `⚠ ${err.message}`;
+    bodyEl.textContent = err.message === "NO_KEY"
+      ? "⚠ Gemini key not set up yet.\n\nGo to Firebase Console → Firestore → appConfig → gemini → key\nand paste your key from aistudio.google.com"
+      : `⚠ Error: ${err.message}`;
   }
 
   btn.disabled = false;
@@ -220,29 +187,25 @@ async function runTaskSWOT() {
     return s;
   })();
 
-  const rate = tasks.length ? Math.round(done.length/tasks.length*100) : 0;
-  const recentTitles  = done.slice(-8).map(t => t.title).join(", ") || "none";
-  const overdueTitles = overdue.slice(0,6).map(t => t.title).join(", ") || "none";
-  const highDoneTitles = highDone.slice(0,5).map(t => t.title).join(", ") || "none";
-
-  const prompt = `You are a productivity analyst. Based on this user's task data, generate insightful, specific SWOT items — not generic advice, but observations tied to their actual numbers and tasks.
+  const prompt = `You are a productivity analyst. Based on this person's task data, generate a SWOT analysis AND also populate specific items for each quadrant.
 
 TASK DATA:
-- Total tasks: ${tasks.length} | Completed: ${done.length} (${rate}%) | Pending: ${pending.length}
-- Overdue: ${overdue.length} tasks: ${overdueTitles}
-- Daily habit streak: ${dailyStreak} days
-- High-priority tasks completed: ${highDoneTitles}
-- Recent completions: ${recentTitles}
+- Total tasks: ${tasks.length}
+- Completed: ${done.length} (${tasks.length ? Math.round(done.length/tasks.length*100) : 0}%)
+- Pending: ${pending.length}
+- Overdue: ${overdue.length}
+- Daily streak: ${dailyStreak} days
+- High-priority completed: ${highDone.slice(0,5).map(t => t.title + (t.description ? " (" + t.description + ")" : "")).join(", ") || "none"}
+- Overdue tasks: ${overdue.slice(0,5).map(t => t.title + (t.description ? " (" + t.description + ")" : "")).join(", ") || "none"}
+- Recent completions: ${done.slice(-6).map(t => t.title + (t.description ? " (" + t.description + ")" : "")).join(", ") || "none"}
 
-Generate 2-4 items per quadrant that are SPECIFIC to this data. Reference actual numbers and task names.
-
-Return ONLY this exact JSON format:
+Respond ONLY with valid JSON in this exact format, no other text:
 {
-  "strengths": ["specific strength based on data", "..."],
-  "weaknesses": ["specific weakness based on data", "..."],
-  "opportunities": ["specific opportunity based on data", "..."],
-  "threats": ["specific threat or risk based on data", "..."],
-  "summary": "2-3 sentence honest assessment referencing their actual completion rate, streak, and overdue situation"
+  "strengths": ["item1", "item2", "item3"],
+  "weaknesses": ["item1", "item2"],
+  "opportunities": ["item1", "item2"],
+  "threats": ["item1", "item2"],
+  "summary": "2-3 sentence plain text strategic summary based on the data"
 }`;
 
   try {
