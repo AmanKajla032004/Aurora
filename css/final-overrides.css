@@ -1898,9 +1898,32 @@ body.dark .priority-pill {
 }
 
 /* Keep old .complete-btn .edit-btn .delete-btn as aliases */
-.complete-btn { @extend .task-done-btn; }
-.edit-btn     { @extend .task-edit-btn; }
-.delete-btn   { @extend .task-delete-btn; }
+.complete-btn {
+  flex: 1; padding: 7px 10px; font-size: 12px; font-weight: 600;
+  border-radius: 8px; border: 1px solid rgba(0,200,122,0.25);
+  background: rgba(0,200,122,0.1); color: #00c87a;
+  cursor: pointer; font-family: inherit; transition: all 0.15s;
+  white-space: nowrap; text-align: center;
+}
+.complete-btn:hover { background: rgba(0,200,122,0.2); }
+
+.edit-btn {
+  flex: 1; padding: 7px 10px; font-size: 12px; font-weight: 600;
+  border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05); color: var(--muted);
+  cursor: pointer; font-family: inherit; transition: all 0.15s;
+  white-space: nowrap; text-align: center;
+}
+.edit-btn:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+
+.delete-btn {
+  flex: 0 0 auto; padding: 7px 12px; font-size: 12px; font-weight: 600;
+  border-radius: 8px; border: 1px solid rgba(239,68,68,0.2);
+  background: rgba(239,68,68,0.08); color: #ef4444;
+  cursor: pointer; font-family: inherit; transition: all 0.15s;
+  white-space: nowrap; text-align: center;
+}
+.delete-btn:hover { background: rgba(239,68,68,0.18); }
 
 /* Task section header */
 .task-section-title {
@@ -1920,4 +1943,33 @@ body.dark .priority-pill {
   padding: 32px 20px;
   color: var(--muted);
   font-size: 13px;
+}
+
+
+
+/* ═══════════════════════════════════════════════════════════════
+   WHISPER BUTTONS — fix dark hover override from components.css
+═══════════════════════════════════════════════════════════════ */
+.whisper-btn-primary {
+  background: linear-gradient(135deg, #00f5a0, #00d9f5) !important;
+  color: #060f1e !important;
+  border: none !important;
+}
+.whisper-btn-primary:hover {
+  background: linear-gradient(135deg, #00f5a0, #00d9f5) !important;
+  transform: translateY(-3px) !important;
+  box-shadow: 0 10px 30px rgba(0,200,122,0.4) !important;
+  color: #060f1e !important;
+}
+.whisper-btn-ghost {
+  background: transparent !important;
+  border: 1.5px solid rgba(255,255,255,0.18) !important;
+  color: rgba(255,255,255,0.7) !important;
+}
+.whisper-btn-ghost:hover {
+  background: rgba(255,255,255,0.05) !important;
+  border-color: rgba(255,255,255,0.5) !important;
+  color: white !important;
+  transform: translateY(-2px) !important;
+  box-shadow: none !important;
 }
