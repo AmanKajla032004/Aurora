@@ -180,33 +180,30 @@ function renderSections() {
   const now = new Date();
   const streak = calculateStreak(allTasks);
   // "once" tasks = one-time tasks for today; show alongside daily
-  const activeDaily   = sortTasks(allTasks.filter(t=>(t.type==="daily"||t.type==="once")&&!t.completed));
-  const activeWeekly  = sortTasks(allTasks.filter(t=>t.type==="weekly"&&!t.completed));
-  const activeCustom  = sortTasks(allTasks.filter(t=>t.type==="custom"&&!t.completed));
-  // Helper: build deadline from dueDate + optional dueTime
-  // Handles "YYYY-MM-DD" strings correctly in all timezones
+  // Build deadline in LOCAL time — no UTC confusion
   const buildDeadline = (dueDate, dueTime) => {
     if (!dueDate) return null;
-    // Extract just the date part in case it's a full ISO string
     const datePart = dueDate.length > 10 ? dueDate.slice(0, 10) : dueDate;
+    const [y, mo, day] = datePart.split("-").map(Number);
     if (dueTime) {
-      // Combine date + time as LOCAL time (not UTC)
       const [h, m] = dueTime.split(":").map(Number);
-      const d = new Date(datePart);
-      d.setHours(h, m, 0, 0);
-      return d;
-    } else {
-      // No time set — deadline is end of that local day
-      const [y, mo, day] = datePart.split("-").map(Number);
-      return new Date(y, mo - 1, day, 23, 59, 59, 999); // LOCAL time, not UTC
+      return new Date(y, mo - 1, day, h, m, 0, 0);
     }
+    return new Date(y, mo - 1, day, 23, 59, 59, 999); // end of day, local time
   };
 
-  const activeMissed = sortTasks(allTasks.filter(t => {
+  // A task is "missed" only if its deadline has fully passed
+  const isMissed = t => {
     if (t.completed || !t.dueDate) return false;
     const deadline = buildDeadline(t.dueDate, t.dueTime);
     return deadline && deadline < now;
-  }));
+  };
+
+  // Exclude missed tasks from active sections so they don't appear twice
+  const activeMissed  = sortTasks(allTasks.filter(t => isMissed(t)));
+  const activeDaily   = sortTasks(allTasks.filter(t => (t.type==="daily"||t.type==="once") && !t.completed && !isMissed(t)));
+  const activeWeekly  = sortTasks(allTasks.filter(t => t.type==="weekly" && !t.completed && !isMissed(t)));
+  const activeCustom  = sortTasks(allTasks.filter(t => t.type==="custom" && !t.completed && !isMissed(t)));
   let completedTasks = [];
   if (completedFilter) {
     completedTasks = sortTasks(allTasks.filter(t=>{
