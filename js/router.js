@@ -10,12 +10,13 @@ import { renderFocusRooms, initFocusRooms, destroyFocusRooms } from "./views/foc
 import { renderSwot, initSwotLogic } from "./views/swotView.js";
 import { renderReport, initReport, checkAndGenerateMissedReports } from "./views/reportView.js";
 import { renderFriends, initFriends } from "./views/friendsView.js";
+import { renderWellbeing, initWellbeing } from "./views/wellbeingView.js";
 
 export let currentRoute = "home";
 let activeRoute = null;
 
-// Run on every app load — silently generates missed reports in background
-setTimeout(() => checkAndGenerateMissedReports(), 3000);
+// On app load — silently generate any missed reports in background
+setTimeout(() => { try { checkAndGenerateMissedReports(); } catch(e){} }, 3000);
 
 export async function navigate(route) {
   if (activeRoute === "whisper") destroyWhisper();
@@ -52,6 +53,7 @@ export async function navigate(route) {
     swot:       { title: "SWOT Analysis", render: renderSwot,        init: initSwotLogic },
     report:     { title: "Daily Report",  render: renderReport,      init: initReport },
     friends:    { title: "Friends",       render: renderFriends,     init: initFriends },
+    wellbeing:  { title: "Wellbeing",     render: renderWellbeing,   init: initWellbeing },
   };
 
   const r = routes[route];

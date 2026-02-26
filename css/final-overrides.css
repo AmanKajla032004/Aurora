@@ -2088,3 +2088,198 @@ body.dark .priority-pill {
 .report-hist-filter-btn.active .report-hist-filter-count {
   background: rgba(0,200,122,0.2);
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   FRIENDS — profile card & avatar upload fix
+═══════════════════════════════════════════════════════════════ */
+.fr-profile-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.fr-profile-left { display: flex; align-items: center; gap: 16px; }
+.fr-avatar-wrap  { position: relative; }
+.fr-avatar {
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent2, #00d9f5));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; font-weight: 700; color: #000;
+  overflow: hidden;
+}
+.fr-avatar-upload-btn {
+  position: absolute; bottom: -2px; right: -2px;
+  width: 24px; height: 24px;
+  background: var(--surface2, #1a1a2e);
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 11px;
+  transition: background 0.2s;
+}
+.fr-avatar-upload-btn:hover { background: var(--accent); }
+.fr-profile-name  { font-size: 16px; font-weight: 700; color: var(--text); }
+.fr-profile-email { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.fr-modal-av-wrap { flex-shrink: 0; }
+.fr-modal-avatar  {
+  width: 48px; height: 48px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent2, #00d9f5));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 700; color: #000; overflow: hidden;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   WELLBEING PAGE
+═══════════════════════════════════════════════════════════════ */
+.wb-page { max-width: 680px; margin: 0 auto; padding-bottom: 40px; }
+.wb-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 24px; gap: 12px; flex-wrap: wrap;
+}
+.wb-title    { font-size: 26px; font-weight: 800; color: var(--text); margin: 0; }
+.wb-subtitle { font-size: 13px; color: var(--muted); margin-top: 3px; }
+.wb-ai-btn {
+  padding: 9px 18px; border-radius: 20px;
+  background: rgba(0,200,122,0.12); border: 1px solid rgba(0,200,122,0.3);
+  color: var(--accent); font-size: 13px; font-weight: 600;
+  cursor: pointer; font-family: inherit; white-space: nowrap;
+  transition: all 0.18s;
+}
+.wb-ai-btn:hover { background: rgba(0,200,122,0.22); }
+.wb-ai-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.wb-today-card, .wb-ai-card, .wb-history-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 22px;
+  margin-bottom: 16px;
+}
+.wb-card-title {
+  font-size: 14px; font-weight: 700; color: var(--text);
+  margin-bottom: 18px; letter-spacing: 0.3px;
+}
+
+.wb-field { margin-bottom: 18px; }
+.wb-field-label {
+  font-size: 12px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.8px;
+  margin-bottom: 10px;
+}
+
+/* Emoji row */
+.wb-emoji-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.wb-emoji-btn {
+  width: 40px; height: 40px; border-radius: 10px;
+  border: 2px solid transparent;
+  background: rgba(255,255,255,0.04);
+  font-size: 20px; cursor: pointer;
+  transition: all 0.15s; display: flex; align-items: center; justify-content: center;
+}
+.wb-emoji-btn:hover { background: rgba(255,255,255,0.1); transform: scale(1.1); }
+.wb-emoji-btn.active {
+  border-color: var(--accent);
+  background: rgba(0,200,122,0.15);
+  transform: scale(1.12);
+}
+
+/* Stress */
+.wb-stress-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.wb-stress-btn {
+  width: 40px; height: 40px; border-radius: 10px;
+  border: 2px solid var(--border);
+  background: transparent;
+  color: var(--text); font-size: 14px; font-weight: 700;
+  cursor: pointer; transition: all 0.15s;
+  font-family: inherit;
+}
+.wb-stress-btn:hover { border-color: var(--accent); color: var(--accent); }
+.wb-stress-btn.active { background: var(--accent); border-color: var(--accent); color: #000; }
+.wb-stress-labels {
+  display: flex; gap: 4px; font-size: 10px; color: var(--muted);
+  flex-direction: column; margin-left: 4px; line-height: 1.3;
+}
+
+/* Steppers */
+.wb-row-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.wb-stepper  { display: flex; align-items: center; gap: 14px; }
+.wb-step-btn {
+  width: 32px; height: 32px; border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.04);
+  color: var(--text); font-size: 18px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s; font-family: inherit; line-height: 1;
+}
+.wb-step-btn:hover { background: rgba(255,255,255,0.1); border-color: var(--accent); }
+.wb-step-val { font-size: 20px; font-weight: 700; color: var(--text); min-width: 28px; text-align: center; }
+
+/* Toggle row */
+.wb-toggle-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.wb-toggle-btn {
+  padding: 7px 14px; border-radius: 20px;
+  border: 1px solid var(--border);
+  background: transparent; color: var(--muted);
+  font-size: 12px; font-weight: 500; cursor: pointer;
+  transition: all 0.15s; font-family: inherit;
+}
+.wb-toggle-btn:hover  { border-color: var(--accent); color: var(--accent); }
+.wb-toggle-btn.active { background: rgba(0,200,122,0.15); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+
+/* Note */
+.wb-note-input {
+  width: 100%; padding: 12px; border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.03);
+  color: var(--text); font-family: inherit; font-size: 13px;
+  resize: vertical; box-sizing: border-box;
+  line-height: 1.6; min-height: 72px;
+}
+.wb-note-input:focus { outline: none; border-color: var(--accent); }
+
+/* Save */
+.wb-save-btn {
+  width: 100%; padding: 12px; border-radius: 12px;
+  background: var(--accent); border: none;
+  color: #000; font-size: 14px; font-weight: 700;
+  cursor: pointer; font-family: inherit;
+  transition: opacity 0.2s; margin-top: 4px;
+}
+.wb-save-btn:hover    { opacity: 0.88; }
+.wb-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.wb-save-msg { text-align: center; font-size: 13px; margin-top: 8px; min-height: 18px; }
+
+/* AI card */
+.wb-ai-body { font-size: 14px; color: var(--text); line-height: 1.75; }
+.wb-ai-body p:last-child { margin-bottom: 0; }
+
+/* History */
+.wb-chart-wrap { margin-bottom: 16px; }
+.wb-history-list { display: flex; flex-direction: column; gap: 10px; }
+.wb-hist-row {
+  padding: 12px 14px; border-radius: 10px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+}
+.wb-hist-date  { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+.wb-hist-icons { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 16px; }
+.wb-hist-pill  {
+  font-size: 11px; padding: 3px 8px; border-radius: 20px;
+  background: rgba(255,255,255,0.07); color: var(--muted);
+}
+.wb-hist-stress {
+  width: 20px; height: 20px; border-radius: 50%;
+  font-size: 10px; font-weight: 700; color: #000;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.wb-hist-note { font-size: 12px; color: var(--muted); margin-top: 6px; font-style: italic; }
+
+@media (max-width: 480px) {
+  .wb-row-2col { grid-template-columns: 1fr; }
+  .wb-emoji-btn { width: 36px; height: 36px; font-size: 18px; }
+}

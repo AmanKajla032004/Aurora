@@ -1,4 +1,5 @@
 import { getTasksFromCloud } from "../firebase/firestoreService.js";
+import { getWellbeingForReport } from "./wellbeingView.js";
 import { askGemini } from "../gemini.js";
 
 let activePeriod = "day";
@@ -101,7 +102,11 @@ async function generateStats() {
   let tasks = [];
   try { tasks = await getTasksFromCloud(); } catch(e) {}
 
+  // Also fetch wellbeing data for enriched report
+  const wellbeing = await getWellbeingForReport(7).catch(() => null);
+
   const { statsHtml, meta } = buildStats(tasks);
+  meta.wellbeing = wellbeing;
   if (container) container.innerHTML = statsHtml;
 
   // Store meta for AI use
@@ -241,6 +246,22 @@ function buildStats(tasks, refDate) {
 
   let html = "";
 
+  // Wellbeing summary card
+  if (meta.wellbeing && activePeriod !== "swot") {
+    const wb2 = meta.wellbeing;
+    const moodBar = wb2.avgMood ? Math.round((wb2.avgMood/7)*100) : 0;
+    const energyBar = wb2.avgEnergy ? Math.round((wb2.avgEnergy/6)*100) : 0;
+    html += `<div class="report-card" style="border-color:rgba(0,200,122,0.2)">
+      <div class="report-section-title">🌿 Wellbeing (past 7 days)</div>
+      <div class="report-stats-row">
+        ${wb2.avgMood   ? `<div class="report-stat"><div class="report-stat-val">${wb2.avgMood}/7</div><div class="report-stat-lbl">Mood</div></div>` : ""}
+        ${wb2.avgEnergy ? `<div class="report-stat"><div class="report-stat-val">${wb2.avgEnergy}/6</div><div class="report-stat-lbl">Energy</div></div>` : ""}
+        ${wb2.avgStress ? `<div class="report-stat"><div class="report-stat-val" style="color:${wb2.avgStress>3?"#f97316":"var(--accent)"}">${wb2.avgStress}/5</div><div class="report-stat-lbl">Stress</div></div>` : ""}
+        ${wb2.avgSleep  ? `<div class="report-stat"><div class="report-stat-val">${wb2.avgSleep}h</div><div class="report-stat-lbl">Sleep</div></div>` : ""}
+      </div>
+    </div>`;
+  }
+
   if (activePeriod !== "swot") {
     html += `<div class="report-card">
       <div class="report-section-title">${periodTitle} at a Glance</div>
@@ -310,6 +331,8 @@ THREATS`;
   }
 
   const periodName = activePeriod === "day" ? "end-of-day" : activePeriod === "week" ? "weekly" : "monthly";
+  const wb = meta?.wellbeing;
+  const wbLine = wb ? `\nWellbeing (avg 7d): mood=${wb.avgMood}/7, energy=${wb.avgEnergy}/6, stress=${wb.avgStress}/5, sleep=${wb.avgSleep}h, water=${wb.avgWater} glasses.` : "";
   const taskLabel = t => t.title + (t.description ? ` (${t.description})` : "");
   const dailyNote = activePeriod === "day"
     ? "\nImportant: Focus only on TODAY\'s activity. Long-term goals (weekly/monthly/yearly tasks) are ongoing — acknowledge progress, not failure."
@@ -318,7 +341,7 @@ THREATS`;
     ? pending.filter(t => t.type === "daily" || t.type === "once").length
     : pending.length;
 
-  return `${periodName} productivity report. Plain text, no markdown dashes.${dailyNote}
+  return `${periodName} productivity report. Plain text, no markdown dashes.${dailyNote}${wbLine}
 ${periodLabel}: completed ${completedInPeriod.length} tasks${completedInPeriod.length?": "+completedInPeriod.slice(0,4).map(taskLabel).join(", "):""}.
 Pending: ${pendingCount}. Overdue: ${overdue.length}${overdue.length?": "+overdue.slice(0,2).map(taskLabel).join(", "):""}. Streak: ${streak}d. Rate: ${rate}%.
 High priority: ${highPri.slice(0,3).map(taskLabel).join(", ")||"none"}.
