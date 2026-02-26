@@ -1,22 +1,58 @@
-// ─── Gemini AI Helper ─────────────────────────────────────────
-// Models updated Feb 2026 — 1.5 family retired April 2025
-import { GEMINI_KEY } from "./config.js";
+// ─── Gemini AI — Secure Key via Firestore ─────────────────────
+// Key is stored in Firestore (never in code or GitHub)
+// Run js/saveApiKey.html once locally to save your key
 
-// Current free-tier models (fastest/cheapest first)
+import { db } from "./firebase/firebaseConfig.js";
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
 const MODELS = [
-  "gemini-2.5-flash-lite",   // 1000 req/day free — fastest
-  "gemini-2.5-flash",        // 250 req/day free  — smarter
-  "gemini-2.0-flash",        // fallback
-  "gemini-2.0-flash-lite",   // fallback
+  "gemini-2.5-flash-lite",
+  "gemini-2.5-flash",
+  "gemini-2.0-flash",
+  "gemini-2.0-flash-lite",
 ];
 
 const BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
+// Cache the key in memory so we only fetch Firestore once per session
+let _cachedKey = null;
+
+async function getKey() {
+  if (_cachedKey) return _cachedKey;
+
+  // Try Firestore first (works on both local and hosted)
+  try {
+    const snap = await getDoc(doc(db, "appConfig", "gemini"));
+    if (snap.exists() && snap.data().key) {
+      _cachedKey = snap.data().key;
+      return _cachedKey;
+    }
+  } catch(e) {
+    // Firestore unavailable — fall through to config.js
+  }
+
+  // Fallback: try config.js (local dev only — not on GitHub)
+  try {
+    const { GEMINI_KEY } = await import("./config.js");
+    if (GEMINI_KEY && GEMINI_KEY.length > 10 && !GEMINI_KEY.includes("YOUR_KEY")) {
+      _cachedKey = GEMINI_KEY;
+      return _cachedKey;
+    }
+  } catch(e) {
+    // config.js doesn't exist (normal on GitHub/hosted)
+  }
+
+  return null;
+}
+
 export async function askGemini(prompt, maxTokens = 900) {
-  if (!GEMINI_KEY || GEMINI_KEY.length < 10) {
+  const key = await getKey();
+
+  if (!key) {
     throw new Error(
-      "No Gemini API key found.\n" +
-      "Get a free key at aistudio.google.com and paste it into js/config.js"
+      "No Gemini API key configured.\n\n" +
+      "Open js/saveApiKey.html in your browser to save your key securely.\n" +
+      "Get a free key at: aistudio.google.com"
     );
   }
 
@@ -31,17 +67,14 @@ export async function askGemini(prompt, maxTokens = 900) {
   for (const model of MODELS) {
     let res, data;
     try {
-      res  = await fetch(`${BASE}/${model}:generateContent?key=${GEMINI_KEY}`, {
+      res  = await fetch(`${BASE}/${model}:generateContent?key=${key}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body
       });
       data = await res.json();
-    } catch {
-      continue;
-    }
+    } catch { continue; }
 
-    // ── Success ──────────────────────────────────────────────
     if (res.ok) {
       const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
       if (text) return text;
@@ -53,49 +86,41 @@ export async function askGemini(prompt, maxTokens = 900) {
     const status = res.status;
     const msg    = (data?.error?.message || "").toLowerCase();
 
-    // ── Hard failures — stop immediately ────────────────────
     if (status === 400 && !msg.includes("not found") && !msg.includes("deprecated")) {
       throw new Error(`Bad request: ${data?.error?.message || "check your prompt"}`);
     }
     if (status === 403) {
+      // Key is bad — clear cache so next call retries Firestore
+      _cachedKey = null;
       throw new Error(
-        "API key rejected (403) — your key is invalid or revoked.\n" +
-        "Get a new free key at: aistudio.google.com"
+        "API key rejected (403) — your key has been revoked.\n\n" +
+        "This usually happens when a key is exposed on GitHub.\n\n" +
+        "Fix:\n" +
+        "1. Get a new key at aistudio.google.com\n" +
+        "2. Open js/saveApiKey.html and save the new key\n" +
+        "3. Make sure js/config.js is in your .gitignore"
       );
     }
-
-    // ── Soft failures — try next model ───────────────────────
-    if (status === 404 || msg.includes("not found") || msg.includes("deprecated") || msg.includes("not supported")) {
+    if (status === 404 || msg.includes("not found") || msg.includes("deprecated")) {
       notFound.push(model); continue;
     }
     if (status === 429 || msg.includes("quota") || msg.includes("rate")) {
       rateLimited.push(model); continue;
     }
-
-    // Unknown error — try next
     continue;
-  }
-
-  // ── All models failed — give clear diagnosis ─────────────
-  if (notFound.length === MODELS.length) {
-    throw new Error(
-      "API key issue — none of the Gemini models responded.\n\n" +
-      "Your API key may be from an old project or restricted.\n" +
-      "Fix: Go to aistudio.google.com → Get API Key → create a NEW key → paste into js/config.js"
-    );
   }
 
   if (rateLimited.length > 0) {
     throw new Error(
-      "Daily quota reached for all Gemini models.\n\n" +
+      "Daily quota reached.\n\n" +
       "Free limits: gemini-2.5-flash-lite = 1000/day, gemini-2.5-flash = 250/day\n" +
       "Options:\n" +
-      "• Wait until midnight Pacific time (quota resets)\n" +
-      "• Create a new API key at aistudio.google.com (each key gets fresh quota)"
+      "• Wait until midnight Pacific time (quota resets daily)\n" +
+      "• Get a fresh API key at aistudio.google.com → save via saveApiKey.html"
     );
   }
 
-  throw new Error("AI request failed — check your API key at aistudio.google.com");
+  throw new Error("AI request failed — open saveApiKey.html to update your key.");
 }
 
 export async function askGeminiJSON(prompt, maxTokens = 600) {
@@ -107,4 +132,11 @@ export async function askGeminiJSON(prompt, maxTokens = 600) {
     if (m) try { return JSON.parse(m[1]); } catch {}
     throw new Error("AI returned invalid JSON — try again.");
   }
+}
+
+// Expose a way to update the key at runtime (used by saveApiKey.html)
+export async function saveKeyToFirestore(newKey) {
+  const { setDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+  await setDoc(doc(db, "appConfig", "gemini"), { key: newKey, updatedAt: new Date().toISOString() });
+  _cachedKey = newKey;
 }
