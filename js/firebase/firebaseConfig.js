@@ -14,3 +14,4 @@ const firebaseConfig = {
 export const app  = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db   = getFirestore(app);
+// Firebase Storage is imported dynamically in friendsService when needed
