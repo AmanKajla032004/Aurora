@@ -124,14 +124,49 @@ export async function askGemini(prompt, maxTokens = 900) {
 }
 
 export async function askGeminiJSON(prompt, maxTokens = 600) {
-  const full  = prompt + "\n\nRespond ONLY with raw JSON. No markdown, no code fences. Start directly with { or [";
-  const raw   = await askGemini(full, maxTokens);
-  const clean = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
-  try { return JSON.parse(clean); } catch {
-    const m = clean.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
-    if (m) try { return JSON.parse(m[1]); } catch {}
-    throw new Error("AI returned invalid JSON — try again.");
+  // Very explicit instruction — models still sometimes wrap in markdown
+  const full = prompt + "\n\nCRITICAL: Respond ONLY with raw JSON. No markdown. No backticks. No code fences. No explanation. Start your response with { or [ immediately.";
+  const raw  = await askGemini(full, maxTokens);
+
+  // Multi-stage cleaning
+  let clean = raw.trim();
+
+  // Strip markdown code fences (```json ... ``` or ``` ... ```)
+  clean = clean.replace(/^```(?:json|JSON)?\s*/m, "").replace(/\s*```\s*$/m, "").trim();
+
+  // Strip leading prose before JSON starts (e.g. "Here is the JSON:")
+  const jsonStart = clean.search(/[[{]/);
+  if (jsonStart > 0) clean = clean.slice(jsonStart);
+
+  // Strip trailing prose after JSON ends
+  const lastBrace  = clean.lastIndexOf("}");
+  const lastBracket = clean.lastIndexOf("]");
+  const jsonEnd = Math.max(lastBrace, lastBracket);
+  if (jsonEnd >= 0 && jsonEnd < clean.length - 1) clean = clean.slice(0, jsonEnd + 1);
+
+  // Try direct parse
+  try { return JSON.parse(clean); } catch(e1) {}
+
+  // Try extracting largest JSON block
+  const objectMatch  = clean.match(/\{[\s\S]*\}/);
+  const arrayMatch   = clean.match(/\[[\s\S]*\]/);
+  const candidates   = [objectMatch?.[0], arrayMatch?.[0]].filter(Boolean);
+
+  for (const candidate of candidates) {
+    try { return JSON.parse(candidate); } catch {}
   }
+
+  // Last resort: ask again with even stricter prompt
+  try {
+    const retry = await askGemini(
+      prompt + "\n\nReturn ONLY the JSON object/array. No text before or after. No backticks.",
+      maxTokens
+    );
+    const r = retry.trim().replace(/^```(?:json)?\s*/m, "").replace(/\s*```\s*$/m, "").trim();
+    return JSON.parse(r);
+  } catch {}
+
+  throw new Error("AI returned invalid JSON — please try again.");
 }
 
 // Expose a way to update the key at runtime (used by saveApiKey.html)

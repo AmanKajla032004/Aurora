@@ -3,7 +3,8 @@ import { getTasksFromCloud } from "../firebase/firestoreService.js";
 export function renderAnalytics() {
   return `
 <div class="analytics-container">
-  <!-- TOP: Score + quick stats -->
+
+  <!-- 1. KEY STATS — first thing user wants to see -->
   <div class="analytics-top stat-card">
     <div class="analytics-score-card">
       <div class="score-ring-wrap">
@@ -13,71 +14,136 @@ export function renderAnalytics() {
             stroke-dasharray="314.16" stroke-dashoffset="314.16"/>
         </svg>
         <div class="score-ring-label">
-          <span class="score-num" id="scoreNum">0</span>
+          <span class="score-num" id="scoreNum">—</span>
           <span class="score-sub">SCORE</span>
         </div>
       </div>
       <div class="score-info">
-        <h3 id="scoreLabel">Calculating…</h3>
-        <p id="scoreMsg"></p>
+        <h3 id="scoreLabel">Loading…</h3>
+        <p id="scoreMsg" style="color:var(--muted);font-size:13px"></p>
       </div>
     </div>
-    <div class="analytics-mini-stats" id="miniStats"></div>
+    <div class="analytics-mini-stats" id="miniStats">
+      <div style="color:var(--muted);font-size:13px;padding:12px">Loading stats…</div>
+    </div>
   </div>
 
-  <!-- ACTIVITY HEATMAP -->
+  <!-- 2. PERSONAL INSIGHTS — actionable, shown prominently -->
+  <div class="analytics-insights-grid" id="analyticsInsights"></div>
+
+  <!-- 3. GOAL PROGRESS — what matters most -->
+  <div class="chart-card">
+    <h3>Goal Progress</h3>
+    <div class="goal-progress-wrap" id="goalProgressWrap">
+      <div style="color:var(--muted);font-size:13px">Loading…</div>
+    </div>
+  </div>
+
+  <!-- 4. ACTIVITY HEATMAP — streak at a glance -->
   <div class="chart-card">
     <h3>Activity — Last 12 Weeks</h3>
-    <div class="heatmap-grid" id="heatmapGrid"></div>
+    <div class="heatmap-grid" id="heatmapGrid" style="margin:12px 0"></div>
     <div class="heatmap-legend">
       <span style="font-size:10px;color:var(--muted)">Less</span>
-      ${[0.1, 0.3, 0.55, 0.8, 1].map(o => `<span class="heat-cell" style="background:rgba(0,200,122,${o});width:12px;height:12px;flex-shrink:0"></span>`).join("")}
+      ${[0.12,0.3,0.55,0.8,1].map(o => `<span class="heat-cell" style="background:rgba(0,200,122,${o});width:12px;height:12px;flex-shrink:0"></span>`).join("")}
       <span style="font-size:10px;color:var(--muted)">More</span>
     </div>
   </div>
 
-  <!-- CHARTS ROW 1 -->
+  <!-- 5. COMPLETION TREND — recent momentum -->
   <div class="charts-section">
-    <div class="chart-card"><h3>Completions — Last 30 Days</h3><canvas id="trendChart" height="180"></canvas></div>
-    <div class="chart-card"><h3>Best Day of Week</h3><canvas id="dowChart" height="180"></canvas></div>
+    <div class="chart-card" style="position:relative;min-height:240px">
+      <h3>Completions — Last 30 Days</h3>
+      <canvas id="trendChart"></canvas>
+    </div>
+    <div class="chart-card" style="position:relative;min-height:240px">
+      <h3>Weekly Velocity</h3>
+      <canvas id="velocityChart"></canvas>
+    </div>
   </div>
 
-  <!-- CHARTS ROW 2 -->
+  <!-- 6. BEHAVIOUR PATTERNS -->
   <div class="charts-section">
-    <div class="chart-card"><h3>Priority Breakdown</h3><canvas id="priorityChart" height="180"></canvas></div>
-    <div class="chart-card"><h3>Task Types</h3><canvas id="typeChart" height="180"></canvas></div>
+    <div class="chart-card" style="position:relative;min-height:240px">
+      <h3>Best Day of Week</h3>
+      <canvas id="dowChart"></canvas>
+    </div>
+    <div class="chart-card" style="position:relative;min-height:240px">
+      <h3>Peak Hours</h3>
+      <canvas id="hourChart"></canvas>
+    </div>
   </div>
 
-  <!-- CHARTS ROW 3: NEW -->
+  <!-- 7. TASK BREAKDOWN -->
   <div class="charts-section">
-    <div class="chart-card"><h3>Completion Rate by Hour</h3><canvas id="hourChart" height="180"></canvas></div>
-    <div class="chart-card"><h3>Overdue vs On-Time</h3><canvas id="overdueChart" height="180"></canvas></div>
+    <div class="chart-card" style="position:relative;min-height:240px">
+      <h3>Priority Breakdown</h3>
+      <canvas id="priorityChart"></canvas>
+    </div>
+    <div class="chart-card" style="position:relative;min-height:240px">
+      <h3>On-Time vs Late</h3>
+      <canvas id="overdueChart"></canvas>
+    </div>
   </div>
 
-  <!-- NEW: PERSONAL INSIGHTS CARDS -->
-  <div class="analytics-insights-grid" id="analyticsInsights"></div>
-
-  <!-- NEW: VELOCITY CHART (tasks per week, trend) -->
-  <div class="chart-card">
-    <h3>Weekly Velocity — Last 8 Weeks</h3>
-    <canvas id="velocityChart" height="160"></canvas>
+  <!-- 8. TASK TYPE MIX — least critical, shown last -->
+  <div class="chart-card" style="position:relative;min-height:240px">
+    <h3>Task Type Distribution</h3>
+    <canvas id="typeChart"></canvas>
   </div>
 
-  <!-- NEW: GOAL PROGRESS -->
-  <div class="chart-card">
-    <h3>Goal Progress — Monthly vs Yearly Tasks</h3>
-    <div class="goal-progress-wrap" id="goalProgressWrap"></div>
-  </div>
 </div>`;
 }
 
 export async function initAnalytics() {
+  // ---- isDark MUST be first — used everywhere below ----
+  const isDark    = document.body.classList.contains("dark");
+  const textCol   = isDark ? "rgba(203,213,225,0.85)" : "rgba(30,41,59,0.80)";
+  const gridCol   = isDark ? "rgba(255,255,255,0.05)"  : "rgba(0,0,0,0.05)";
+  const borderCol = isDark ? "rgba(255,255,255,0.07)"  : "rgba(0,0,0,0.07)";
+  const root      = document.documentElement;
+  const acc       = root.style.getPropertyValue("--accent").trim()  || "#00c87a";
+  const acc2      = root.style.getPropertyValue("--accent2").trim() || "#00d9f5";
+  const acc3      = "#7800ff", acc4 = "#f97316";
+
+  // ---- Chart.js guard ----
+  if (typeof Chart === "undefined") {
+    console.error("Chart.js not loaded");
+    return;
+  }
+
+  // ---- Shared chart factory ----
+  function makeChart(id, type, data, options = {}) {
+    const el = document.getElementById(id);
+    if (!el) { console.warn("Canvas not found:", id); return; }
+    if (Chart.getChart(el)) Chart.getChart(el).destroy();
+    el.style.width  = "100%";
+    el.style.height = "200px";
+    return new Chart(el, {
+      type,
+      data,
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: options.legend ?? false,
+            labels: { color: textCol, boxWidth: 11, font: { size: 11 }, padding: 10 }
+          }
+        },
+        scales: type !== "doughnut" && type !== "pie" ? {
+          x: { grid: { color: gridCol }, ticks: { color: textCol, font: { size: 11 }, maxTicksLimit: 12 }, border: { color: borderCol } },
+          y: { grid: { color: gridCol }, ticks: { color: textCol, font: { size: 11 } }, beginAtZero: true, border: { color: borderCol } }
+        } : {},
+        animation: { duration: 800, easing: "easeInOutQuart" },
+        ...options
+      }
+    });
+  }
+
   const tasks = await getTasksFromCloud();
   const now   = new Date();
 
-  // ---- EMPTY STATE (only if truly no tasks at all) ----
-  // Charts still render with 0 values — they just show empty bars/rings
-  // which is honest feedback. Only block if zero tasks exist at all.
   if (tasks.length === 0) {
     const container = document.querySelector(".analytics-container");
     if (container) {
@@ -85,12 +151,11 @@ export async function initAnalytics() {
         <div class="analytics-top stat-card" style="text-align:center;padding:48px 20px">
           <div style="font-size:52px;margin-bottom:16px">📊</div>
           <h3 style="color:var(--text);font-size:20px;margin:0 0 10px">No tasks yet</h3>
-          <p style="color:var(--muted);font-size:14px;margin:0;line-height:1.6">Add tasks in the Tasks section and start completing them.<br>Analytics will populate automatically — even 1 task shows your score.</p>
+          <p style="color:var(--muted);font-size:14px;margin:0;line-height:1.6">Add tasks and start completing them — analytics appear automatically.</p>
         </div>`;
     }
     return;
   }
-
 
   // ---- PRODUCTIVITY SCORE ----
   const streak   = calcStreak(tasks);
@@ -123,56 +188,7 @@ export async function initAnalytics() {
       <div class="am-val">${val}</div>
     </div>`).join("");
 
-  // Colors — declared FIRST so everything below can use them
-  const isDark = document.body.classList.contains("dark");
-
-  // ---- HEATMAP ----
-  const heatmap = document.getElementById("heatmapGrid");
-  if (heatmap) {
-    const completionMap = {};
-    tasks.filter(t => t.completed && t.completedAt).forEach(t => {
-      const d = new Date(t.completedAt.seconds ? t.completedAt.seconds * 1000 : t.completedAt);
-      const key = localDate(d); completionMap[key] = (completionMap[key] || 0) + 1;
-    });
-    const max = Math.max(1, ...Object.values(completionMap));
-    const cells = [];
-    for (let w = 11; w >= 0; w--) {
-      for (let day = 0; day < 7; day++) {
-        const d = new Date(now); d.setDate(now.getDate() - w * 7 - (now.getDay() - day));
-        const key = localDate(d); const cnt = completionMap[key] || 0;
-        const intensity = cnt / max;
-        const emptyBg = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.07)";
-        const bg = cnt === 0 ? emptyBg : `rgba(0,200,122,${0.18 + intensity * 0.82})`;
-        cells.push(`<div class="heat-cell" style="background:${bg}" title="${key}: ${cnt} completed"></div>`);
-      }
-    }
-    heatmap.innerHTML = cells.join("");
-    heatmap.style.gridTemplateColumns = "repeat(84, 1fr)";
-  }
-  const textCol = isDark ? "rgba(203,213,225,0.8)" : "rgba(30,41,59,0.75)";
-  const gridCol = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)";
-  const borderCol = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
-  const root = document.documentElement;
-  const acc  = root.style.getPropertyValue("--accent").trim()  || "#00c87a";
-  const acc2 = root.style.getPropertyValue("--accent2").trim() || "#00d9f5";
-  const acc3 = "#7800ff", acc4 = "#f97316";
-
-  function makeChart(id, type, data, options = {}) {
-    const el = document.getElementById(id); if (!el) return;
-    if (Chart.getChart(el)) Chart.getChart(el).destroy();
-    return new Chart(el, { type, data, options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: options.legend ?? false, labels: { color: textCol, boxWidth: 11, font: { size: 11 }, padding: 10 } } },
-      scales: type !== "doughnut" && type !== "pie" ? {
-        x: { grid: { color: gridCol }, ticks: { color: textCol, font: { size: 11 }, maxTicksLimit: 12 }, border: { color: borderCol } },
-        y: { grid: { color: gridCol }, ticks: { color: textCol, font: { size: 11 } }, beginAtZero: true, border: { color: borderCol } }
-      } : {},
-      animation: { duration: 900, easing: "easeInOutQuart" },
-      ...options
-    }});
-  }
-
-  // ---- 30-day trend ----
+    // ---- 30-day trend ----
   const days30 = Array.from({length:30},(_,i)=>{ const d=new Date(now); d.setDate(now.getDate()-29+i); return d; });
   const doneByDay = days30.map(d => tasks.filter(t => t.completed && t.completedAt && localDate(new Date(t.completedAt.seconds ? t.completedAt.seconds*1000 : t.completedAt)) === localDate(d)).length);
   const createdByDay = days30.map(d => tasks.filter(t => t.createdAt && localDate(new Date(t.createdAt.seconds ? t.createdAt.seconds*1000 : t.createdAt)) === localDate(d)).length);

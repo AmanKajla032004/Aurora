@@ -2406,3 +2406,59 @@ body.dark .priority-pill {
   .wb-stress-btn { min-width: 50px; padding: 8px 4px; }
   .wb-stress-lbl { font-size: 9px; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   AUTH VERIFY PANEL — all text must be clearly visible
+═══════════════════════════════════════════════════════════════ */
+#authPanelVerify {
+  text-align: center;
+}
+#authPanelVerify .auth-reset-desc {
+  color: rgba(226,232,240,0.9) !important;
+  font-size: 14px !important;
+  opacity: 1 !important;
+}
+#authPanelVerify strong {
+  color: #fff !important;
+}
+#verifyEmailAddr {
+  color: #00f5a0 !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  word-break: break-all;
+}
+#verifyMsg {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  min-height: 20px;
+}
+#checkVerifyBtn {
+  background: linear-gradient(90deg, #00f5a0, #00d9f5) !important;
+  color: #0b0f19 !important;
+  font-weight: 700 !important;
+  font-size: 14px !important;
+  border: none !important;
+  padding: 13px !important;
+  border-radius: 40px !important;
+}
+#resendVerifyBtn {
+  color: rgba(148,163,184,0.8) !important;
+  font-size: 13px !important;
+}
+#resendVerifyBtn:hover { color: #00f5a0 !important; }
+.auth-verify-icon { font-size: 48px !important; }
+
+/* Analytics chart cards — ensure canvas fills properly */
+.charts-section .chart-card canvas,
+.analytics-container > .chart-card canvas {
+  display: block !important;
+  width: 100% !important;
+  height: 200px !important;
+}
+.analytics-container > .chart-card[style*="min-height"] {
+  display: flex;
+  flex-direction: column;
+}
+.analytics-container > .chart-card[style*="min-height"] canvas {
+  flex: 1;
+}

@@ -56,18 +56,35 @@ export function initAuthLogic(onSuccess) {
           appContainer.style.display = "flex";
         }
       } else {
-        // Registration: create account → let them in immediately
-        // Attempt to send verification email but don't block on it
+        // Registration: create account, send verification email, show verify panel
         const cred = await register(email, pass);
-        try { await verifyEmail(); } catch(e) { /* ignore - email may fail */ }
-        // Log them straight in
-        if (onSuccess) onSuccess();
-        const authLayerEl = document.getElementById("authLayer");
-        const appContainerEl = document.getElementById("appContainer");
-        if (authLayerEl && appContainerEl) {
-          authLayerEl.style.display = "none";
-          appContainerEl.style.display = "flex";
+        
+        // Send verification email
+        let emailSent = false;
+        try {
+          await verifyEmail();
+          emailSent = true;
+        } catch(e) {
+          console.warn("Verification email failed:", e.message);
         }
+
+        // Show verify panel — bright, readable text
+        const addrEl = document.getElementById("verifyEmailAddr");
+        if (addrEl) addrEl.textContent = email;
+
+        const verifyMsg = document.getElementById("verifyMsg");
+        if (verifyMsg) {
+          if (emailSent) {
+            verifyMsg.textContent = "✉️ Verification email sent! Check your inbox.";
+            verifyMsg.style.color = "#00c87a";
+          } else {
+            verifyMsg.textContent = "Couldn't send email — press Resend below.";
+            verifyMsg.style.color = "#f59e0b";
+          }
+        }
+
+        document.getElementById("authTitle").textContent = "VERIFY YOUR EMAIL";
+        showAuthPanel("verify");
       }
     } catch (err) {
       console.error("Auth error:", err.code, err.message);
