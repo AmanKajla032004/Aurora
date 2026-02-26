@@ -9,6 +9,10 @@
   <meta name="theme-color" content="#0a0e1a" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#f0f4f8">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌌</text></svg>">
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <meta name="apple-mobile-web-app-title" content="Aurora">
   <title>Aurora Planner</title>
   <link rel="stylesheet" href="css/theme.css">
   <link rel="stylesheet" href="css/theme-accent.css">
@@ -144,5 +148,14 @@
 </div>
 
 <script type="module" src="js/app.js"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("/sw.js")
+          .then(() => console.log("Aurora SW registered"))
+          .catch(e => console.log("SW error:", e));
+      });
+    }
+  </script>
 </body>
 </html>
