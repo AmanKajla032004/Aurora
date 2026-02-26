@@ -31,8 +31,20 @@ export function showToast(message, type = "success") {
 
 function getAutoDeadline(type) {
   const now = new Date();
-  if (type === "weekly")  { const e = new Date(now); e.setDate(now.getDate()+(7-now.getDay())); return e.toISOString().split("T")[0]; }
-  if (type === "monthly") return new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().split("T")[0];
+  // Use local date parts — never toISOString() which shifts to UTC
+  const localDate = (d) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,"0");
+    const day = String(d.getDate()).padStart(2,"0");
+    return `${y}-${m}-${day}`;
+  };
+  if (type === "weekly") {
+    const e = new Date(now);
+    const daysUntilSunday = 7 - now.getDay(); // days until end of week (Sunday)
+    e.setDate(now.getDate() + (daysUntilSunday === 7 ? 0 : daysUntilSunday));
+    return localDate(e);
+  }
+  if (type === "monthly") return localDate(new Date(now.getFullYear(), now.getMonth()+1, 0));
   if (type === "yearly")  return `${now.getFullYear()}-12-31`;
   return "";
 }
@@ -195,6 +207,10 @@ function renderSections() {
   // A task is "missed" only if its deadline has fully passed
   const isMissed = t => {
     if (t.completed || !t.dueDate) return false;
+    // Daily tasks reset every day — never show as missed
+    if (t.type === "daily") return false;
+    // Only show as missed if user explicitly set a due date (not auto-generated)
+    if (!t.customDeadline && (t.type === "weekly" || t.type === "monthly" || t.type === "yearly")) return false;
     const deadline = buildDeadline(t.dueDate, t.dueTime);
     return deadline && deadline < now;
   };
