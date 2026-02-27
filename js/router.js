@@ -25,6 +25,8 @@ export async function navigate(route) {
 
   currentRoute = route;
   activeRoute  = route;
+  // Persist last route so refresh restores it
+  try { localStorage.setItem("aurora_last_route", route); } catch(e) {}
 
   const content = document.getElementById("appContent");
   const title   = document.getElementById("pageTitle");
@@ -61,5 +63,6 @@ export async function navigate(route) {
 
   title.textContent = r.title;
   content.innerHTML = typeof r.render === "function" ? (await r.render()) : r.render;
-  setTimeout(() => r.init(), 50);
+  // Run init immediately (no setTimeout delay that races with Firebase auth)
+  try { await r.init(); } catch(e) { console.warn("Route init error:", e); }
 }

@@ -263,8 +263,8 @@ function renderTaskItem(task, isCompleted=false) {
     <div class="task-item ${isCompleted?"task-completed":""}" data-id="${task.id}" draggable="${!isCompleted}">
       <div class="drag-handle">⠿</div>
       <div class="task-priority-stripe" style="background:${color}"></div>
-      <div class="task-left">
-        <div style="flex:1;min-width:0">
+      <div class="task-body">
+        <div class="task-content">
           <div class="task-title ${isCompleted?"strikethrough":""}">${task.title}</div>
           ${task.description?`<div class="task-desc">${task.description}</div>`:""}
           <div class="task-meta">
@@ -284,17 +284,15 @@ function renderTaskItem(task, isCompleted=false) {
                 <span>${s.title}</span>
               </label>`).join("")}</div>`:""}
         </div>
-      </div>
-      <div class="task-actions">
-        ${!isCompleted?`
-          <button data-complete="${task.id}" class="complete-btn">✓ Done</button>
-          <div class="task-actions-row">
+        <div class="task-actions">
+          ${!isCompleted?`
+            <button data-complete="${task.id}" class="complete-btn">✓ Done</button>
             <button data-edit="${task.id}" class="edit-btn">✎ Edit</button>
             <button data-delete="${task.id}" class="delete-btn">✕ Delete</button>
-          </div>
-        `:`
-          <button data-delete="${task.id}" class="delete-btn" style="width:100%">✕ Delete</button>
-        `}
+          `:`
+            <button data-delete="${task.id}" class="delete-btn">✕ Delete</button>
+          `}
+        </div>
       </div>
     </div>`;
 }

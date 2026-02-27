@@ -118,14 +118,21 @@ listenToAuthState(async user => {
 
     const t = parseInt(localStorage.getItem("aurora_login_time") || "0");
     if (t && (Date.now()-t) > ONE_MONTH) { localStorage.removeItem("aurora_login_time"); await logout(); return; }
-    authLayer.style.display    = "none";
-    appContainer.style.display = "flex";
-    navigate("home");
-    startDeadlineReminder();
-    // Restore theme & accent (or combo)
+    // Set login time if missing (e.g. after a refresh — keeps session alive)
+    if (!t) localStorage.setItem("aurora_login_time", Date.now().toString());
+
+    // Restore theme FIRST so there's no flash
     const sc = localStorage.getItem("aurora_combo");
     if (sc) { applyCombo(sc); }
     else { applyTheme(localStorage.getItem("aurora_theme") === "dark"); applyAccent(localStorage.getItem("aurora_accent") || "green"); }
+
+    authLayer.style.display    = "none";
+    appContainer.style.display = "flex";
+
+    // Restore last visited route on refresh, default to home
+    const lastRoute = localStorage.getItem("aurora_last_route") || "home";
+    await navigate(lastRoute);
+    startDeadlineReminder();
   } else {
     localStorage.removeItem("aurora_login_time");
     appContainer.style.display = "none";
