@@ -2,7 +2,7 @@ import {
   addTaskToCloud, getTasksFromCloud, deleteTaskFromCloud,
   completeTaskInCloud, updateTaskInCloud
 } from "../firebase/firestoreService.js";
-import { askGeminiJSON } from "../gemini.js";
+import { askGeminiList } from "../gemini.js";
 
 let allTasks = [];
 let showMonthly = false, showYearly = false;
@@ -523,24 +523,15 @@ function setupEvents() {
     try {
       const desc = descEl?.value.trim();
       const type = document.getElementById("taskType")?.value || "once";
-      const prompt = `You are a productivity assistant. Break down this task into 3-6 clear, actionable subtasks.
-
-Task title: ${title}
-Task type: ${type}${desc ? "\nDescription/context: " + desc : ""}
-
-Rules:
-- Each subtask should start with an action verb (Research, Write, Set up, Test, Review, etc.)
-- Order them logically from first step to last step
-- Be specific to the task, not generic
-- If description is provided, use it to make subtasks more relevant
-
-Return ONLY a JSON array of strings. Example: ["Research options", "Write first draft", "Review and edit"]`;
-      const subtasks = await askGeminiJSON(prompt, 400);
+      const prompt = `Break down this task into 3-6 clear, actionable subtasks.
+Task: ${title}${desc ? " — " + desc : ""} (type: ${type})
+Each subtask must start with an action verb. Order logically. Be specific.`;
+      const subtasks = await askGeminiList(prompt, 300);
 
       if (Array.isArray(subtasks) && subtasks.length) {
         // Add to pending subtasks
         subtasks.forEach(s => {
-          const text = typeof s === "string" ? s.trim() : (s.title || s).trim();
+          const text = s.trim();
           if (text && !pendingSubtasks.find(p => p.title === text)) {
             pendingSubtasks.push({ title: text, done: false });
           }
@@ -630,6 +621,8 @@ Return ONLY a JSON array of strings. Example: ["Research options", "Write first 
       await completeTaskInCloud(id);
       // Silently refresh allTasks in background for accuracy
       allTasks = await getTasksFromCloud();
+      // Notify home/dashboard to refresh streak
+      window.dispatchEvent(new CustomEvent("taskCompleted", { detail: { tasks: allTasks } }));
       return;
     }
 

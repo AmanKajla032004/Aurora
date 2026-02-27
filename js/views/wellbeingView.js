@@ -1,5 +1,5 @@
 import { db, auth } from "../firebase/firebaseConfig.js";
-import { askGemini } from "../gemini.js";
+import { askGemini, askGeminiStructured } from "../gemini.js";
 import {
   doc, getDoc, setDoc, collection, query,
   orderBy, limit, getDocs, serverTimestamp
@@ -488,26 +488,23 @@ async function generateWellbeingSwot() {
   const avgEnergy = avg(history.map(h=>h.energy));
   const avgStress = avg(history.map(h=>h.stress));
   const avgSleep  = avg(history.map(h=>h.sleep));
-  const prompt = `Based on this person's 14-day wellbeing data, create a personal SWOT analysis for their health and mindset.
-Data: avg mood=${avgMood||wbState.mood||"?"}/7, avg energy=${avgEnergy||wbState.energy||"?"}/6, avg stress=${avgStress||wbState.stress||"?"}/5, avg sleep=${avgSleep||wbState.sleep||"?"}h.
-Today: mood=${wbState.mood||"?"}/7, energy=${wbState.energy||"?"}/6, stress=${wbState.stress||"?"}/5, exercise=${wbState.exercise||"None"}.
-Recent notes: ${history.filter(h=>h.note).slice(-3).map(h=>h.note).join("; ")||"none"}.
-
-Return ONLY valid JSON:
-{"strengths":["2-3 items about what's going well for their wellbeing"],"weaknesses":["2-3 items about what's draining them"],"opportunities":["2 items they could improve"],"threats":["2 items that could worsen their wellbeing"],"summary":"2-sentence actionable summary"}`;
+  const prompt = `Analyze this person's 14-day wellbeing for a personal health SWOT.
+Avg mood: ${avgMood||wbState.mood||"?"}/7, energy: ${avgEnergy||wbState.energy||"?"}/6, stress: ${avgStress||wbState.stress||"?"}/5, sleep: ${avgSleep||wbState.sleep||"?"}h.
+Today: mood=${wbState.mood||"?"}, energy=${wbState.energy||"?"}, stress=${wbState.stress||"?"}, exercise=${wbState.exercise||"None"}.
+Notes: ${history.filter(h=>h.note).slice(-3).map(h=>h.note).join("; ")||"none"}.
+Give 2-3 real, personalized items per section based on the actual numbers.`;
   try {
-    // Use askGemini + manual parse for wellbeing SWOT
-    const raw = await askGemini(prompt + "\n\nIMPORTANT: Output ONLY the JSON object.", 500);
-    let clean = raw.trim().replace(/^```(?:json)?\s*/gm,"").replace(/^```\s*$/gm,"").trim();
-    const start = clean.indexOf("{"); if (start > 0) clean = clean.slice(start);
-    const end = clean.lastIndexOf("}"); if (end >= 0) clean = clean.slice(0, end+1);
-    const data = JSON.parse(clean);
+    const data = await askGeminiStructured(prompt,
+      ["strengths", "weaknesses", "opportunities", "threats", "summary"], 350);
     const renderItems = (arr) => (arr||[]).map(i=>`<div class="wb-swot-item">${i}</div>`).join("");
     document.getElementById("wbSwotS").innerHTML = renderItems(data.strengths);
     document.getElementById("wbSwotW").innerHTML = renderItems(data.weaknesses);
     document.getElementById("wbSwotO").innerHTML = renderItems(data.opportunities);
     document.getElementById("wbSwotT").innerHTML = renderItems(data.threats);
-    document.getElementById("wbSwotSummary").innerHTML = data.summary ? `<p style="font-size:13px;color:var(--muted);margin-top:12px;line-height:1.6">${data.summary}</p>` : "";
+    const summaryArr = data.summary || [];
+    const summaryText = Array.isArray(summaryArr) ? summaryArr.join(" ") : String(summaryArr || "");
+    document.getElementById("wbSwotSummary").innerHTML = summaryText
+      ? `<p style="font-size:13px;color:var(--muted);margin-top:12px;line-height:1.6">${summaryText}</p>` : "";
     result.style.display = "block";
   } catch(e) {
     document.querySelector(".wb-swot-intro p").textContent = `⚠ ${e.message}`;

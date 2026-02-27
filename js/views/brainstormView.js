@@ -10,8 +10,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { openColorPicker } from "../colorPicker.js";
 import { addTaskToCloud } from "../firebase/firestoreService.js";
-import { askGeminiJSON } from "../gemini.js";
-import { askGemini } from "../gemini.js";
+import { askGeminiList, askGemini } from "../gemini.js";
 
 let boards = [];
 let activeBoardId = null;
@@ -873,13 +872,10 @@ Rules:
 - Each idea should be distinct and immediately usable
 - If given a specific topic/request, stay focused on it
 - Mix practical ideas with more creative/ambitious ones
-- Keep each idea concise (1 sentence max)
-
-Return ONLY a JSON array of strings. No other text. Example:
-["Specific idea one", "Specific idea two", "Specific idea three"]`;
+- Keep each idea concise (1 sentence max)`;
 
   try {
-    const ideas = await askGeminiJSON(prompt, 600);
+    const ideas = await askGeminiList(prompt, 500);
     if (!Array.isArray(ideas) || !ideas.length) throw new Error("No ideas returned");
 
     results.innerHTML = `

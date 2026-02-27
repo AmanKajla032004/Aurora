@@ -113,6 +113,9 @@ initAuthLogic(() => localStorage.setItem("aurora_login_time", Date.now().toStrin
 
 listenToAuthState(async user => {
   if (user) {
+    // If we just registered and are showing the verify screen, don't enter app yet
+    if (sessionStorage.getItem("aurora_pending_verify")) return;
+
     const t = parseInt(localStorage.getItem("aurora_login_time") || "0");
     if (t && (Date.now()-t) > ONE_MONTH) { localStorage.removeItem("aurora_login_time"); await logout(); return; }
     authLayer.style.display    = "none";

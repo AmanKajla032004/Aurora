@@ -1,5 +1,5 @@
 import { getTasksFromCloud } from "../firebase/firestoreService.js";
-import { askGemini, askGeminiJSON } from "../gemini.js";
+import { askGemini, askGeminiStructured } from "../gemini.js";
 
 const QUADRANTS = [
   { key: "strengths",     label: "Strengths",     icon: "💪", sublabel: "What's working for you",   color: "#00c87a" },
@@ -199,17 +199,11 @@ TASK DATA:
 - Overdue tasks: ${overdue.slice(0,5).map(t => t.title + (t.description ? " (" + t.description + ")" : "")).join(", ") || "none"}
 - Recent completions: ${done.slice(-6).map(t => t.title + (t.description ? " (" + t.description + ")" : "")).join(", ") || "none"}
 
-Respond ONLY with valid JSON in this exact format, no other text:
-{
-  "strengths": ["item1", "item2", "item3"],
-  "weaknesses": ["item1", "item2"],
-  "opportunities": ["item1", "item2"],
-  "threats": ["item1", "item2"],
-  "summary": "2-3 sentence plain text strategic summary based on the data"
-}`;
+List 2-3 items per quadrant based on the task data above.`;
 
   try {
-    const result = await askGeminiJSON(prompt, 500);
+    const result = await askGeminiStructured(prompt,
+      ["strengths", "weaknesses", "opportunities", "threats", "summary"], 400);
 
     // Merge into swotData (add AI items, don't overwrite user items)
     QUADRANTS.forEach(q => {
@@ -221,8 +215,10 @@ Respond ONLY with valid JSON in this exact format, no other text:
     save();
     renderAllItems();
 
+    const summaryItems = result.summary || [];
+    const summaryText = Array.isArray(summaryItems) ? summaryItems.join(" ") : String(summaryItems);
     titleEl.textContent = "✦ Task SWOT — Added to your board";
-    bodyEl.textContent = result.summary || "AI items added to each quadrant above.";
+    bodyEl.textContent = summaryText || "AI items added to each quadrant above.";
   } catch(err) {
     titleEl.textContent = "✦ Task SWOT";
     bodyEl.textContent = err.message === "NO_KEY"

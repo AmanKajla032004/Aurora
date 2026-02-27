@@ -56,9 +56,18 @@ export function initAuthLogic(onSuccess) {
           appContainer.style.display = "flex";
         }
       } else {
+        // Set flag FIRST so onAuthStateChanged doesn't enter the app prematurely
+        sessionStorage.setItem("aurora_pending_verify", "1");
+
         // Registration: create account, send verification email, show verify panel
-        const cred = await register(email, pass);
-        
+        let cred;
+        try {
+          cred = await register(email, pass);
+        } catch(regErr) {
+          sessionStorage.removeItem("aurora_pending_verify");
+          throw regErr; // re-throw so outer catch shows the error
+        }
+
         // Send verification email
         let emailSent = false;
         try {
@@ -103,10 +112,11 @@ export function initAuthLogic(onSuccess) {
       if (!cred.user.emailVerified) {
         await verifyEmail();
         await logout();
-        msg.textContent = "Verification email resent!";
+        msg.textContent = "Verification email resent! Check your inbox.";
         msg.style.color = "#00c87a";
       } else {
         // Already verified — log them in
+        sessionStorage.removeItem("aurora_pending_verify");
         msg.textContent = "Email verified! Signing in…";
         msg.style.color = "#00c87a";
         setTimeout(() => { if (onSuccess) onSuccess(); }, 800);
@@ -124,13 +134,15 @@ export function initAuthLogic(onSuccess) {
     const msg   = document.getElementById("verifyMsg");
     try {
       const cred = await login(email, pass);
+      await cred.user.reload(); // force-refresh verification status
       if (cred.user.emailVerified) {
-        msg.textContent = "✓ Email verified!";
+        sessionStorage.removeItem("aurora_pending_verify"); // allow app entry
+        msg.textContent = "✓ Email verified! Welcome to Aurora!";
         msg.style.color = "#00c87a";
         setTimeout(() => { if (onSuccess) onSuccess(); }, 600);
       } else {
         await logout();
-        msg.textContent = "Not verified yet. Check your inbox.";
+        msg.textContent = "Not verified yet — check your inbox (also check Spam).";
         msg.style.color = "#f59e0b";
       }
     } catch(e) {
@@ -210,6 +222,9 @@ function friendlyError(code) {
     "auth/popup-blocked":            "Pop-up was blocked by the browser. Allow pop-ups and try again.",
     "auth/cancelled-popup-request":  "Sign-in cancelled.",
     "auth/internal-error":           "An internal error occurred. Please try again.",
+    "auth/unauthorized-domain":       "This browser or device isn't authorized yet. Try opening aurora on your main device, or contact the app owner to add this domain.",
+    "auth/app-deleted":               "App configuration error. Please refresh and try again.",
+    "auth/requires-recent-login":     "Please log out and log in again to continue.",
   };
   return map[code] || `Something went wrong (${code || "unknown"}). Please try again.`;
 }

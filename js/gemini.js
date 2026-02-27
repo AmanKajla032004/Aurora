@@ -176,43 +176,68 @@ export async function askGemini(prompt, maxTokens = 900) {
   throw new Error("AI request failed — check your API key at js/saveApiKey.html");
 }
 
-// ── JSON helper ────────────────────────────────────────────────
+// ── Line-list helper (replaces JSON arrays — far cheaper) ──────
+// Ask AI to return a simple numbered or bulleted list.
+// Returns a plain JS array of strings. One API call, no retry.
+export async function askGeminiList(prompt, maxTokens = 400) {
+  const raw = await askGemini(
+    prompt + "\n\nFormat: output ONLY a plain numbered list, one item per line, no extra text. Example:\n1. First item\n2. Second item",
+    maxTokens
+  );
+  return raw
+    .split("\n")
+    .map(l => l.replace(/^[\d]+[.)\s]+/, "").replace(/^[-*•]\s*/, "").trim())
+    .filter(l => l.length > 2 && l.length < 300);
+}
+
+// ── Structured text helper (replaces JSON objects) ──────────────
+// For SWOT-style objects. Ask AI to use SECTION: lines format.
+// Returns a plain JS object. One API call, no retry.
+export async function askGeminiStructured(prompt, sections, maxTokens = 500) {
+  const sectionList = sections.join(", ");
+  const example = sections.map(s => `${s.toUpperCase()}:\n- item one\n- item two`).join("\n");
+  const raw = await askGemini(
+    prompt + "\n\nFormat: output ONLY plain text using these exact section headings, nothing else:\n" + example + "\n\nUse exactly these section names: " + sectionList,
+    maxTokens
+  );
+
+  const result = {};
+  sections.forEach(s => { result[s] = []; });
+
+  let currentSection = null;
+  for (const line of raw.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    // Check if this line is a section header
+    const matchedSection = sections.find(s =>
+      trimmed.toLowerCase().startsWith(s.toLowerCase() + ":") ||
+      trimmed.toLowerCase() === s.toLowerCase()
+    );
+    if (matchedSection) { currentSection = matchedSection; continue; }
+    // It's a content line
+    if (currentSection) {
+      const item = trimmed.replace(/^[-*•\d.)]\s*/, "").trim();
+      if (item.length > 2) result[currentSection].push(item);
+    }
+  }
+  return result;
+}
+
+// ── JSON helper (kept for backward compat, now uses one call) ──
 export async function askGeminiJSON(prompt, maxTokens = 600) {
-  const cleanJSON = (raw) => {
-    if (!raw) return null;
-    let s = raw.trim();
-    s = s.replace(/^```(?:json|JSON)?\s*/gm, "").replace(/^```\s*$/gm, "").trim();
-    const start = s.search(/[\[{]/);
-    if (start > 0) s = s.slice(start);
-    const lastObj = s.lastIndexOf("}");
-    const lastArr = s.lastIndexOf("]");
-    const end = Math.max(lastObj, lastArr);
-    if (end >= 0 && end < s.length - 1) s = s.slice(0, end + 1);
-    return s.trim();
-  };
-
-  const raw1 = await askGemini(
-    prompt + "\n\nIMPORTANT: Output ONLY valid JSON, starting with { or [. No markdown, no explanation.",
+  const raw = await askGemini(
+    prompt + "\n\nOutput ONLY valid JSON starting with { or [. No markdown.",
     maxTokens
   );
-  const c1 = cleanJSON(raw1);
-  if (c1) {
-    try { return JSON.parse(c1); } catch {}
-    const m1 = c1.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
-    if (m1) try { return JSON.parse(m1[1]); } catch {}
-  }
-
-  const raw2 = await askGemini(
-    "Output ONLY a JSON object or array, nothing else. No text, no markdown.\n\n" + prompt,
-    maxTokens
-  );
-  const c2 = cleanJSON(raw2);
-  if (c2) {
-    try { return JSON.parse(c2); } catch {}
-    const m2 = c2.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
-    if (m2) try { return JSON.parse(m2[1]); } catch {}
-  }
-
+  // Strip any markdown fences
+  let s = raw.trim().replace(/^```(?:json)?\s*/gm, "").replace(/^```\s*$/gm, "").trim();
+  const start = s.search(/[\[{]/);
+  if (start > 0) s = s.slice(start);
+  const end = Math.max(s.lastIndexOf("}"), s.lastIndexOf("]"));
+  if (end >= 0 && end < s.length - 1) s = s.slice(0, end + 1);
+  try { return JSON.parse(s); } catch {}
+  const m = s.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+  if (m) try { return JSON.parse(m[1]); } catch {}
   throw new Error("AI response could not be parsed — please try again.");
 }
 
