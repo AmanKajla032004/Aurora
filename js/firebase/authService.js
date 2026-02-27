@@ -13,7 +13,7 @@ import {
 const provider = new GoogleAuthProvider();
 
 export function listenToAuthState(callback) {
-  onAuthStateChanged(auth, callback);
+  return onAuthStateChanged(auth, callback);
 }
 
 export async function register(email, password) {

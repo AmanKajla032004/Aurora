@@ -2495,9 +2495,17 @@ body.dark .fr-add-card { background: #1c2740; }
   color: #000;
   border-color: var(--accent);
 }
-.fr-add-row { display: flex; gap: 10px; }
+.fr-add-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: nowrap;
+  align-items: stretch;
+}
 .fr-search-input {
-  flex: 1; padding: 10px 14px; border-radius: 10px;
+  flex: 1;
+  min-width: 0;
+  padding: 10px 14px;
+  border-radius: 10px;
   border: 1.5px solid rgba(255,255,255,0.1);
   background: rgba(255,255,255,0.05);
   color: var(--text); font-size: 14px; outline: none;
@@ -2505,10 +2513,21 @@ body.dark .fr-add-card { background: #1c2740; }
 }
 .fr-search-input:focus { border-color: var(--accent); }
 .fr-add-btn {
-  padding: 10px 18px; border-radius: 10px; border: none;
-  background: var(--accent); color: #000;
-  font-weight: 700; font-size: 13px; cursor: pointer;
+  flex-shrink: 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: none;
+  background: var(--accent);
+  color: #000;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
   white-space: nowrap;
+  max-width: 120px;
+}
+@media (max-width: 380px) {
+  .fr-add-row { flex-wrap: wrap; }
+  .fr-add-btn { flex: 1; max-width: 100%; }
 }
 .fr-add-msg {
   margin-top: 8px; font-size: 13px; font-weight: 500;
@@ -2787,4 +2806,47 @@ body.dark .wb-trend-card { background: #1c2740; }
   gap: 5px !important;
   margin-top: 8px !important;
   justify-content: flex-end;
+}
+
+/* ── Repeat day buttons in task modal ── */
+.repeat-days-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.repeat-day-btn {
+  flex: 1;
+  min-width: 38px;
+  padding: 8px 4px;
+  border-radius: 8px;
+  border: 1.5px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: center;
+  transition: all 0.15s;
+}
+.repeat-day-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(var(--accent-rgb, 0,200,122), 0.08);
+}
+.repeat-day-btn.active {
+  background: var(--accent) !important;
+  color: #000 !important;
+  border-color: var(--accent) !important;
+  font-weight: 700;
+}
+body:not(.dark) .repeat-day-btn {
+  border-color: rgba(0,0,0,0.15);
+  background: rgba(0,0,0,0.03);
+  color: #64748b;
+}
+body:not(.dark) .repeat-day-btn.active {
+  background: var(--accent) !important;
+  color: #fff !important;
+  border-color: var(--accent) !important;
 }

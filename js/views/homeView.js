@@ -116,7 +116,21 @@ export async function initHome() {
     return d.toDateString() === todayStr;
   }).length;
   const pending    = tasks.filter(t => !t.completed).length;
-  const overdue    = tasks.filter(t => !t.completed && t.dueDate && new Date(t.dueDate) < now).length;
+  // Match tasksView isMissed logic exactly
+  const buildDeadlineH = (dueDate, dueTime) => {
+    if (!dueDate) return null;
+    const dp = dueDate.length > 10 ? dueDate.slice(0,10) : dueDate;
+    const [y, mo, d] = dp.split("-").map(Number);
+    if (dueTime) { const [h, m] = dueTime.split(":").map(Number); return new Date(y, mo-1, d, h, m, 0, 0); }
+    return new Date(y, mo-1, d, 23, 59, 59, 999);
+  };
+  const overdue = tasks.filter(t => {
+    if (t.completed || !t.dueDate) return false;
+    if (t.type === "daily") return false;
+    if (!t.customDeadline && (t.type === "weekly" || t.type === "monthly" || t.type === "yearly")) return false;
+    const dl = buildDeadlineH(t.dueDate, t.dueTime);
+    return dl && dl < now;
+  }).length;
   const totalDone  = tasks.filter(t => t.completed).length;
 
   // Streak

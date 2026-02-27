@@ -6,14 +6,16 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
+let _cachedUser = null, _authReady = false;
+const _authCbs = [];
+onAuthStateChanged(auth, user => {
+  _cachedUser = user; _authReady = true;
+  _authCbs.splice(0).forEach(fn => fn(user));
+});
 function waitForUser() {
   return new Promise((resolve, reject) => {
-    if (auth.currentUser) { resolve(auth.currentUser); return; }
-    const unsub = onAuthStateChanged(auth, user => {
-      unsub();
-      if (user) resolve(user);
-      else reject(new Error("Not logged in"));
-    });
+    if (_authReady) { _cachedUser ? resolve(_cachedUser) : reject(new Error("Not logged in")); return; }
+    _authCbs.push(user => { user ? resolve(user) : reject(new Error("Not logged in")); });
   });
 }
 

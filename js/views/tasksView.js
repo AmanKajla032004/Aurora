@@ -257,7 +257,22 @@ function renderTaskItem(task, isCompleted=false) {
   const pLabels={1:"Low",2:"Med",3:"High",4:"V.High",5:"Crit"};
   const color=pColors[task.priority]||"#6b7280";
   const subtasks=task.subtasks||[], done=subtasks.filter(s=>s.done).length;
-  const deadlineStr = task.dueDate?`📅 ${task.dueDate}${task.dueTime?" "+task.dueTime:""}`:""
+  const buildDl = (dueDate, dueTime) => {
+    if (!dueDate) return null;
+    const dp = dueDate.length > 10 ? dueDate.slice(0,10) : dueDate;
+    const [dy,dm,dd] = dp.split("-").map(Number);
+    if (dueTime) { const [h,m]=dueTime.split(":").map(Number); return new Date(dy,dm-1,dd,h,m,0,0); }
+    return new Date(dy,dm-1,dd,23,59,59,999);
+  };
+  const _dl = buildDl(task.dueDate, task.dueTime);
+  const _diffH = _dl ? (_dl - new Date()) / 3600000 : null;
+  let deadlineStr = "";
+  if (task.dueDate) {
+    if (!isCompleted && _diffH !== null && _diffH < 0)       deadlineStr = "⚠️ Overdue";
+    else if (!isCompleted && _diffH !== null && _diffH < 24) deadlineStr = `🔴 Due today${task.dueTime?" "+task.dueTime:""}`;
+    else if (!isCompleted && _diffH !== null && _diffH < 72) deadlineStr = `🟡 Due soon: ${task.dueDate}`;
+    else                                                       deadlineStr = `📅 ${task.dueDate}${task.dueTime?" "+task.dueTime:""}`;
+  }
   const repeatStr   = task.repeatType && task.repeatType !== "everyday" ? `🔁 ${repeatLabel(task)}` : "";
   return `
     <div class="task-item ${isCompleted?"task-completed":""}" data-id="${task.id}" draggable="${!isCompleted}">

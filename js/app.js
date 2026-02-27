@@ -111,14 +111,15 @@ function setupMobileSidebar() {
 // ── Auth ──────────────────────────────────────────
 initAuthLogic(() => localStorage.setItem("aurora_login_time", Date.now().toString()));
 
-// onAuthStateChanged fires once with null while Firebase reads its session from IndexedDB.
-// We must NOT show the login screen on that first null — only after Firebase has finished
-// its initialization. We track this with a flag.
-let _authResolved = false;
+// Firebase fires onAuthStateChanged twice on page load:
+// First with null (while reading IndexedDB), then with the real user.
+// We MUST NOT react to the first null — only show login after auth is truly resolved.
+let _appLaunched = false;
 
 listenToAuthState(async user => {
   if (user) {
-    _authResolved = true;
+    if (_appLaunched) return; // already running, ignore re-fires
+    _appLaunched = true;
 
     // If we just registered and are showing the verify screen, don't enter app yet
     if (sessionStorage.getItem("aurora_pending_verify")) return;
@@ -139,26 +140,32 @@ listenToAuthState(async user => {
     authLayer.style.display    = "none";
     appContainer.style.display = "flex";
 
-    // Navigate to last visited route (or home on first login)
+    // Navigate to last visited route (or home)
     const lastRoute = localStorage.getItem("aurora_last_route") || "home";
     await navigate(lastRoute);
     startDeadlineReminder();
 
   } else {
-    // Firebase fires null immediately on page load before checking its session.
-    // Only show the login screen once Firebase confirms there is truly no session.
-    // We do this by waiting a short tick — if user fires right after, we never see the null.
-    if (!_authResolved) {
-      // First null — Firebase still loading. Wait 1 second before giving up.
-      await new Promise(r => setTimeout(r, 1000));
-      // If still no user after 1 second, it's a genuine logged-out state.
-      if (_authResolved) return; // user arrived in the meantime, do nothing
+    if (_appLaunched) {
+      // User actively logged out — show login screen
+      _appLaunched = false;
+      localStorage.removeItem("aurora_login_time");
+      appContainer.style.display = "none";
+      authLayer.style.display    = "block";
+      return;
     }
-
-    _authResolved = true;
-    localStorage.removeItem("aurora_login_time");
-    appContainer.style.display = "none";
-    authLayer.style.display    = "block";
+    // First null on page load — Firebase is still reading its session.
+    // Wait up to 3s; if the real user arrives we never show login.
+    // If no user after 3s, it's a genuine logged-out state.
+    const userArrived = await new Promise(resolve => {
+      const unsub = listenToAuthState(u => { if (u !== null) { unsub(); resolve(true); } });
+      setTimeout(() => resolve(false), 3000);
+    });
+    if (!userArrived) {
+      localStorage.removeItem("aurora_login_time");
+      appContainer.style.display = "none";
+      authLayer.style.display    = "block";
+    }
   }
 });
 

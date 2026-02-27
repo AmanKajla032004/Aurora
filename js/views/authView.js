@@ -38,9 +38,14 @@ export function initAuthLogic(onSuccess) {
   };
 
   document.getElementById("primaryAuthBtn").onclick = async () => {
+    const btn = document.getElementById("primaryAuthBtn");
+    if (btn.disabled) return; // prevent double-press
     const email = document.getElementById("authEmail").value.trim();
     const pass  = document.getElementById("authPassword").value;
     if (!email || !pass) { showError("Please enter your email and password."); return; }
+    btn.disabled = true;
+    const origText = btn.textContent;
+    btn.textContent = "Please wait…";
     try {
       clearError();
       if (mode === "login") {
@@ -98,6 +103,9 @@ export function initAuthLogic(onSuccess) {
     } catch (err) {
       console.error("Auth error:", err.code, err.message);
       showError(friendlyError(err.code));
+    } finally {
+      const b = document.getElementById("primaryAuthBtn");
+      if (b) { b.disabled = false; b.textContent = origText; }
     }
   };
 

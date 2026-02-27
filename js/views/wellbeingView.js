@@ -464,16 +464,37 @@ async function generateAiInsight() {
     `${h.date.slice(5)}: mood ${h.mood||"?"}/7 energy ${h.energy||"?"}/6 stress ${h.stress||"?"}/5 sleep ${h.sleep||"?"}h`
   ).join("; ") || "no history";
 
-  const prompt = "You are a warm, honest wellbeing coach. Write a short personalised check-in for this person.\n\n"
-    + "Today: mood=" + (moodLabels[wbState.mood]||"not set") + ", energy=" + (energyLabels[wbState.energy]||"not set")
-    + ", stress=" + (stressLabels[wbState.stress]||"not set") + ", sleep=" + wbState.sleep + "h"
-    + ", water=" + wbState.water + " glasses, exercise=" + (wbState.exercise||"None")
-    + (wbState.note ? ', note="' + wbState.note + '"' : "") + ".\n"
-    + "Last 5 days: " + recentTrend + ".\n\n"
-    + "Write 3 short paragraphs (~120 words total): (1) acknowledge how they feel today with genuine empathy, (2) one honest observation about their recent pattern, (3) one specific, practical suggestion for tomorrow. No headers, no bullet points.";
+  // Build a rich trend summary
+  const trends = history.slice(-7);
+  const avgMood7   = trends.length ? (trends.reduce((a,h)=>a+(h.mood||0),0)/trends.length).toFixed(1) : null;
+  const avgSleep7  = trends.length ? (trends.reduce((a,h)=>a+(h.sleep||0),0)/trends.length).toFixed(1) : null;
+  const avgStress7 = trends.length ? (trends.reduce((a,h)=>a+(h.stress||0),0)/trends.length).toFixed(1) : null;
+  const trendSummary = avgMood7
+    ? `7-day averages: mood ${avgMood7}/7, stress ${avgStress7}/5, sleep ${avgSleep7}h.`
+    : "No trend history yet.";
+
+  const todayStr = [
+    "Mood: " + (moodLabels[wbState.mood]  || "not set"),
+    "Energy: " + (energyLabels[wbState.energy] || "not set"),
+    "Stress: " + (stressLabels[wbState.stress] || "not set"),
+    "Sleep: " + wbState.sleep + "h",
+    "Water: " + wbState.water + " glasses",
+    "Exercise: " + (wbState.exercise || "None"),
+    wbState.note ? "Note: \"" + wbState.note + "\"" : null
+  ].filter(Boolean).join(", ");
+
+  const prompt = "You are a warm, perceptive wellbeing coach. Write a genuinely personalised check-in — not generic.\n\n"
+    + "TODAY: " + todayStr + "\n"
+    + "RECENT TREND: " + recentTrend + "\n"
+    + trendSummary + "\n\n"
+    + "Write exactly 4 short paragraphs (no headers, no bullet points, ~150 words total):\n"
+    + "1. Acknowledge today's emotional state with real empathy — name how they actually feel\n"
+    + "2. Point out one specific pattern in their recent data (mention actual numbers if meaningful)\n"
+    + "3. One honest insight — something they might not have noticed themselves\n"
+    + "4. One concrete, specific action for tomorrow (not generic — tie it to their actual data)";
 
   try {
-    const text = await askGemini(prompt, 350);
+    const text = await askGemini(prompt, 400);
     body.innerHTML = text.split("\n\n").filter(Boolean).map(p=>`<p style="margin:0 0 12px">${p.trim()}</p>`).join("");
   } catch(e) {
     body.innerHTML = `<div style="color:#ef4444">⚠ ${e.message}</div>`;
