@@ -124,18 +124,20 @@ async function runManualAnalysis() {
 
   const hasData = QUADRANTS.some(q => swotData[q.key].length > 0);
 
-  const prompt = `You are a strategic advisor. Analyse this SWOT and give a concise strategic report in plain text (no markdown, no bullet symbols). 3-4 paragraphs. End with 3 concrete next steps labelled NEXT STEPS.
 
-STRENGTHS: ${swotData.strengths.join(", ") || "none"}
-WEAKNESSES: ${swotData.weaknesses.join(", ") || "none"}
-OPPORTUNITIES: ${swotData.opportunities.join(", ") || "none"}
-THREATS: ${swotData.threats.join(", ") || "none"}
+  const prompt = hasData
+    ? `Analyse this SWOT and write a focused strategic report. Plain text only, no markdown, no dashes.
 
-${!hasData ? "The user hasn't filled in their SWOT yet. Give general advice on how to do a productive SWOT analysis and what to focus on." : ""}`;
+Strengths: ${swotData.strengths.join(", ") || "none"}
+Weaknesses: ${swotData.weaknesses.join(", ") || "none"}
+Opportunities: ${swotData.opportunities.join(", ") || "none"}
+Threats: ${swotData.threats.join(", ") || "none"}
+
+Write exactly 3 paragraphs: (1) what is working and why it matters, (2) the biggest risk and what to watch, (3) the best move to make right now. Then add NEXT STEPS: followed by 3 numbered actions to take this week. Target 150 words total.`
+    : `The user is about to fill in a SWOT analysis for their productivity. Write 2 encouraging paragraphs: what a good personal SWOT looks like, and examples of what to put in each quadrant. Keep it practical and motivating. About 100 words.`;
 
   try {
-    const text = await askGemini(prompt, 700);
-    titleEl.textContent = "✦ AI Strategic Analysis";
+    const text = await askGemini(prompt, 600);
     bodyEl.textContent = text;
   } catch(err) {
     titleEl.textContent = "✦ AI Analysis";
@@ -187,19 +189,15 @@ async function runTaskSWOT() {
     return s;
   })();
 
-  const prompt = `You are a productivity analyst. Based on this person's task data, generate a SWOT analysis AND also populate specific items for each quadrant.
+  const tLabel = t => t.title + (t.description ? ` (${t.description})` : "");
+  const prompt = `Based on this person's real task data, fill in a SWOT analysis. Make items specific to their actual tasks, not generic.
 
-TASK DATA:
-- Total tasks: ${tasks.length}
-- Completed: ${done.length} (${tasks.length ? Math.round(done.length/tasks.length*100) : 0}%)
-- Pending: ${pending.length}
-- Overdue: ${overdue.length}
-- Daily streak: ${dailyStreak} days
-- High-priority completed: ${highDone.slice(0,5).map(t => t.title + (t.description ? " (" + t.description + ")" : "")).join(", ") || "none"}
-- Overdue tasks: ${overdue.slice(0,5).map(t => t.title + (t.description ? " (" + t.description + ")" : "")).join(", ") || "none"}
-- Recent completions: ${done.slice(-6).map(t => t.title + (t.description ? " (" + t.description + ")" : "")).join(", ") || "none"}
+Task data: ${tasks.length} total, ${done.length} done (${tasks.length ? Math.round(done.length/tasks.length*100) : 0}%), ${pending.length} pending, ${overdue.length} overdue, ${dailyStreak}-day streak.
+Recently completed: ${done.slice(-5).map(tLabel).join("; ") || "none"}.
+Overdue: ${overdue.slice(0,4).map(tLabel).join("; ") || "none"}.
+High-priority done: ${highDone.slice(0,4).map(tLabel).join("; ") || "none"}.
 
-List 2-3 items per quadrant based on the task data above.`;
+Write 2-3 specific items per section. Summary: 2 sentences of actionable advice.`;
 
   try {
     const result = await askGeminiStructured(prompt,

@@ -523,10 +523,13 @@ function setupEvents() {
     try {
       const desc = descEl?.value.trim();
       const type = document.getElementById("taskType")?.value || "once";
-      const prompt = `Break down this task into 3-6 clear, actionable subtasks.
-Task: ${title}${desc ? " — " + desc : ""} (type: ${type})
-Each subtask must start with an action verb. Order logically. Be specific.`;
-      const subtasks = await askGeminiList(prompt, 300);
+      const prompt = `Break down this task into 4-6 specific, actionable subtasks.
+
+Task title: "${title}"${desc ? `\nContext: "${desc}"` : ""}
+Task type: ${type}
+
+Rules: start each with an action verb (Research, Write, Build, Review, Test, etc.). Order them logically. Make them specific to THIS task, not generic steps.`;
+      const subtasks = await askGeminiList(prompt, 350);
 
       if (Array.isArray(subtasks) && subtasks.length) {
         // Add to pending subtasks

@@ -415,23 +415,22 @@ Wellbeing (last 7 days):
 - Avg sleep: ${wellbeing.avgSleep}h/night, avg water: ${wellbeing.avgWater} glasses/day
 - Days tracked: ${wellbeing.entries}` : "Wellbeing: not tracked this week";
 
-  const prompt = `You are a sharp, honest productivity coach. Analyze this person's week and give a personalized assessment.
+  const topPriTasks = tasks.filter(t => !t.completed)
+    .sort((a,b) => (b.priority||0)-(a.priority||0))
+    .slice(0,3)
+    .map(t => t.title + (t.description ? " — " + t.description : ""))
+    .join("; ");
 
-TASK DATA:
-- Current streak: ${streak} days, longest ever: ${maxStreak} days
-- Completion rate: ${Math.round(rate)}%, total done: ${totalDone}
-- Pending: ${pending}, overdue: ${overdue}
-- Top priorities pending: ${topTasks || "none"}
-- Best day: ${bestDay}
-${wbSection}
-
-Write 4 short paragraphs (no headers, plain text):
-1. Overall assessment — be direct and honest (2-3 sentences)
-2. What the data says about their energy/stress vs productivity pattern
-3. Their biggest opportunity right now (specific, actionable)
-4. One thing to protect or double down on
-
-Keep it under 180 words. Sound like a coach who knows them, not a generic motivator.`;
+  const prompt = "Write a personalised productivity assessment. Plain text, no headers, no bullet points.\n\n"
+    + "Stats: " + streak + "-day current streak, " + maxStreak + "-day best streak, " + Math.round(rate) + "% completion rate, " + totalDone + " tasks done total.\n"
+    + "Pending: " + pending + ", overdue: " + overdue + ". Best day of week: " + bestDay + ".\n"
+    + "Top priority tasks still pending: " + (topPriTasks || "none") + ".\n"
+    + wbSection + "\n\n"
+    + "Write 4 paragraphs (~150 words total):\n"
+    + "1. Direct honest assessment of where they stand right now\n"
+    + "2. One specific pattern you see in the data (energy/stress vs output if wellbeing given, or streak/rate patterns)\n"
+    + "3. Their single most important opportunity or risk based on the pending/overdue data\n"
+    + "4. One concrete thing to do differently or protect this week — be specific, not generic";
 
   try {
     const text = await askGemini(prompt, 500);

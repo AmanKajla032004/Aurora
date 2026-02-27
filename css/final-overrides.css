@@ -2019,18 +2019,46 @@ body.dark .priority-pill {
 }
 .complete-btn:hover, .complete-btn:active { background: rgba(0,200,122,0.22) !important; }
 .edit-btn {
-  background: rgba(255,255,255,0.05) !important;
-  border: 1px solid rgba(255,255,255,0.1) !important;
-  color: var(--muted) !important;
+  background: rgba(99,120,200,0.12) !important;
+  border: 1px solid rgba(99,120,200,0.35) !important;
+  color: #8ba3f5 !important;
 }
-.edit-btn:hover, .edit-btn:active { background: rgba(255,255,255,0.12) !important; color: var(--text) !important; }
+.edit-btn:hover, .edit-btn:active {
+  background: rgba(99,120,200,0.22) !important;
+  border-color: rgba(99,120,200,0.55) !important;
+  color: #a8bef8 !important;
+}
 .delete-btn {
   flex: 0 0 auto !important;
-  background: rgba(239,68,68,0.08) !important;
-  border: 1px solid rgba(239,68,68,0.2) !important;
-  color: #ef4444 !important;
+  background: rgba(239,68,68,0.1) !important;
+  border: 1px solid rgba(239,68,68,0.35) !important;
+  color: #f87171 !important;
 }
-.delete-btn:hover, .delete-btn:active { background: rgba(239,68,68,0.2) !important; }
+.delete-btn:hover, .delete-btn:active {
+  background: rgba(239,68,68,0.22) !important;
+  border-color: rgba(239,68,68,0.55) !important;
+  color: #fca5a5 !important;
+}
+
+/* Light theme overrides for task buttons */
+body:not(.dark) .edit-btn {
+  background: rgba(59,130,246,0.08) !important;
+  border: 1px solid rgba(59,130,246,0.3) !important;
+  color: #2563eb !important;
+}
+body:not(.dark) .edit-btn:hover {
+  background: rgba(59,130,246,0.15) !important;
+  color: #1d4ed8 !important;
+}
+body:not(.dark) .delete-btn {
+  background: rgba(220,38,38,0.07) !important;
+  border: 1px solid rgba(220,38,38,0.3) !important;
+  color: #dc2626 !important;
+}
+body:not(.dark) .delete-btn:hover {
+  background: rgba(220,38,38,0.15) !important;
+  color: #b91c1c !important;
+}
 
 @media (max-width: 480px) {
   .complete-btn, .edit-btn, .delete-btn {

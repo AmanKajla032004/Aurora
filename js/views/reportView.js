@@ -343,43 +343,36 @@ function buildStats(tasks, refDate) {
   return { statsHtml: html, meta };
 }
 
-// ─── Minimal prompt (to save tokens) ─────────────────────────
+// ─── Prompt builder ─────────────────────────────────────────────
 function buildPrompt(meta) {
   const { completedInPeriod=[], overdue=[], pending=[], highPri=[], streak=0, rate=0, tasks=[], periodLabel="today" } = meta;
+  const tLabel = t => t.title + (t.description ? " — " + t.description : "");
 
   if (activePeriod === "swot") {
-    return `Productivity SWOT analysis. Plain text, no markdown dashes.
-Data: ${tasks.length} total tasks, ${tasks.filter(t=>t.completed).length} completed (${rate}%), ${overdue.length} overdue, ${streak} day streak.
-Recent completions: ${completedInPeriod.slice(0,5).map(t=>t.title).join(", ")||"none"}.
-Overdue: ${overdue.slice(0,3).map(t=>t.title).join(", ")||"none"}.
-
-Write 4 sections exactly as labelled, 2-3 sentences each:
-STRENGTHS
-WEAKNESSES
-OPPORTUNITIES
-THREATS`;
+    return "Write a productivity SWOT based on this task data. Plain text, no markdown, no bullet dashes.\n\n"
+      + "Data: " + tasks.length + " total, " + tasks.filter(t=>t.completed).length + " completed (" + rate + "%), " + overdue.length + " overdue, " + streak + "-day streak.\n"
+      + "Completed: " + (completedInPeriod.slice(0,5).map(tLabel).join("; ")||"none") + ".\n"
+      + "Overdue: " + (overdue.slice(0,3).map(tLabel).join("; ")||"none") + ".\n\n"
+      + "Write 4 sections, label each clearly, 2-3 sentences each. Be specific to the actual tasks listed:\nSTRENGTHS\nWEAKNESSES\nOPPORTUNITIES\nTHREATS";
   }
 
   const periodName = activePeriod === "day" ? "end-of-day" : activePeriod === "week" ? "weekly" : "monthly";
   const wb = meta?.wellbeing;
-  const wbLine = wb ? `\nWellbeing (avg 7d): mood=${wb.avgMood}/7, energy=${wb.avgEnergy}/6, stress=${wb.avgStress}/5, sleep=${wb.avgSleep}h, water=${wb.avgWater} glasses.` : "";
-  const taskLabel = t => t.title + (t.description ? ` (${t.description})` : "");
+  const wbLine = wb
+    ? "\nWellbeing this week: mood " + wb.avgMood + "/7, energy " + wb.avgEnergy + "/6, stress " + wb.avgStress + "/5, sleep " + wb.avgSleep + "h avg."
+    : "";
   const dailyNote = activePeriod === "day"
-    ? "\nImportant: Focus only on TODAY\'s activity. Long-term goals (weekly/monthly/yearly tasks) are ongoing — acknowledge progress, not failure."
+    ? "\nNote: daily/once tasks count for today. Weekly/monthly/yearly tasks are ongoing — credit progress made, not failure to finish."
     : "";
   const pendingCount = activePeriod === "day"
     ? pending.filter(t => t.type === "daily" || t.type === "once").length
     : pending.length;
 
-  return `${periodName} productivity report. Plain text, no markdown dashes.${dailyNote}${wbLine}
-${periodLabel}: completed ${completedInPeriod.length} tasks${completedInPeriod.length?": "+completedInPeriod.slice(0,4).map(taskLabel).join(", "):""}.
-Pending: ${pendingCount}. Overdue: ${overdue.length}${overdue.length?": "+overdue.slice(0,2).map(taskLabel).join(", "):""}. Streak: ${streak}d. Rate: ${rate}%.
-High priority: ${highPri.slice(0,3).map(taskLabel).join(", ")||"none"}.
-
-Write 3 sections exactly as labelled, 2-3 sentences each:
-WINS
-WATCH OUT
-NEXT STEPS`;
+  return "Write a " + periodName + " productivity report. Plain text, no markdown, no dashes." + dailyNote + wbLine + "\n\n"
+    + periodLabel + ": " + completedInPeriod.length + " task(s) completed" + (completedInPeriod.length ? ": " + completedInPeriod.slice(0,5).map(tLabel).join("; ") : "") + ".\n"
+    + "Pending: " + pendingCount + ". Overdue: " + overdue.length + (overdue.length ? ": " + overdue.slice(0,3).map(tLabel).join("; ") : "") + ". Streak: " + streak + " days. Rate: " + rate + "%.\n"
+    + "High priority remaining: " + (highPri.slice(0,3).map(tLabel).join("; ")||"none") + ".\n\n"
+    + "Write exactly 3 sections, each 2-3 sentences. Reference the actual tasks above — be specific, not generic:\nWINS\nWATCH OUT\nNEXT STEPS";
 }
 
 // ─── Auto end-of-period reports ───────────────────────────────

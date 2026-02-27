@@ -459,12 +459,21 @@ async function generateAiInsight() {
   const history = await loadHistory(7).catch(()=>[]);
   const moodLabels   = ["","Terrible","Bad","Meh","Okay","Good","Great","Amazing"];
   const energyLabels = ["","Drained","Tired","Low","Okay","Good","Energized"];
-  const prompt = `You are a warm, supportive wellbeing coach. Give a brief, personalized check-in.
-Today: mood=${moodLabels[wbState.mood]||"not set"}, energy=${energyLabels[wbState.energy]||"not set"}, stress=${wbState.stress||"?"}/5, sleep=${wbState.sleep}h, water=${wbState.water} glasses, exercise=${wbState.exercise||"None"}, note="${wbState.note||"none"}".
-Last 7 days: ${history.map(h=>`${h.date}: mood=${h.mood||"?"}/7 energy=${h.energy||"?"}/6 stress=${h.stress||"?"}/5 sleep=${h.sleep||"?"}h`).join("; ")||"no history"}.
-Write 3 short paragraphs (plain text, no headers): 1) acknowledge today's feeling with empathy, 2) one observation about their trend, 3) one kind practical suggestion. Under 100 words total.`;
+  const stressLabels = ["","Calm","Mild","Moderate","High","Overwhelmed"];
+  const recentTrend  = history.slice(-5).map(h =>
+    `${h.date.slice(5)}: mood ${h.mood||"?"}/7 energy ${h.energy||"?"}/6 stress ${h.stress||"?"}/5 sleep ${h.sleep||"?"}h`
+  ).join("; ") || "no history";
+
+  const prompt = "You are a warm, honest wellbeing coach. Write a short personalised check-in for this person.\n\n"
+    + "Today: mood=" + (moodLabels[wbState.mood]||"not set") + ", energy=" + (energyLabels[wbState.energy]||"not set")
+    + ", stress=" + (stressLabels[wbState.stress]||"not set") + ", sleep=" + wbState.sleep + "h"
+    + ", water=" + wbState.water + " glasses, exercise=" + (wbState.exercise||"None")
+    + (wbState.note ? ', note="' + wbState.note + '"' : "") + ".\n"
+    + "Last 5 days: " + recentTrend + ".\n\n"
+    + "Write 3 short paragraphs (~120 words total): (1) acknowledge how they feel today with genuine empathy, (2) one honest observation about their recent pattern, (3) one specific, practical suggestion for tomorrow. No headers, no bullet points.";
+
   try {
-    const text = await askGemini(prompt, 300);
+    const text = await askGemini(prompt, 350);
     body.innerHTML = text.split("\n\n").filter(Boolean).map(p=>`<p style="margin:0 0 12px">${p.trim()}</p>`).join("");
   } catch(e) {
     body.innerHTML = `<div style="color:#ef4444">⚠ ${e.message}</div>`;

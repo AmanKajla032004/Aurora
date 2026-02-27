@@ -861,21 +861,15 @@ Existing ideas: ${existing.join(", ")}` : ""}`
       : `Board name: "${boardName}"${existing.length ? `
 Existing ideas: ${existing.join(", ")}` : ""}`;
 
-  const prompt = `You are a creative brainstorming assistant. Generate 8-10 fresh, specific, actionable ideas.
+  const prompt = `Generate 8-10 specific, actionable, creative ideas.
 
-${context}
-${existing.length && !userPrompt ? `
-Do NOT repeat these existing ideas: ${existing.join(", ")}` : ""}
+${context}${existing.length && !userPrompt ? `
+Already on board (don't repeat): ${existing.slice(0,8).join(", ")}` : ""}
 
-Rules:
-- Be specific and creative — no generic filler
-- Each idea should be distinct and immediately usable
-- If given a specific topic/request, stay focused on it
-- Mix practical ideas with more creative/ambitious ones
-- Keep each idea concise (1 sentence max)`;
+Be specific and imaginative — no vague or generic suggestions. Each idea: 1 sentence, immediately usable, distinct from the others. Mix practical with ambitious.`;
 
   try {
-    const ideas = await askGeminiList(prompt, 500);
+    const ideas = await askGeminiList(prompt, 450);
     if (!Array.isArray(ideas) || !ideas.length) throw new Error("No ideas returned");
 
     results.innerHTML = `
