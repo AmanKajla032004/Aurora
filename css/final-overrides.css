@@ -1992,17 +1992,17 @@ body.dark .priority-pill {
 .task-actions {
   display: flex !important;
   gap: 6px !important;
-  padding: 8px 12px !important;
+  padding: 8px 12px 10px !important;
   border-top: 1px solid rgba(255,255,255,0.06) !important;
-  flex-wrap: nowrap !important;
+  flex-wrap: wrap !important;        /* allow wrapping on narrow screens */
 }
 .complete-btn, .edit-btn, .delete-btn {
-  flex: 1 !important;
-  min-height: 36px !important;
-  padding: 6px 8px !important;
-  font-size: 12px !important;
+  flex: 1 1 auto !important;
+  min-height: 38px !important;
+  padding: 7px 10px !important;
+  font-size: 13px !important;
   font-weight: 600 !important;
-  border-radius: 8px !important;
+  border-radius: 9px !important;
   cursor: pointer !important;
   font-family: inherit !important;
   transition: all 0.15s !important;
@@ -2010,40 +2010,76 @@ body.dark .priority-pill {
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  gap: 4px !important;
+  gap: 5px !important;
+  min-width: 70px !important;        /* never squish below readable width */
 }
 .complete-btn {
   background: rgba(0,200,122,0.1) !important;
-  border: 1px solid rgba(0,200,122,0.25) !important;
+  border: 1px solid rgba(0,200,122,0.3) !important;
   color: #00c87a !important;
 }
 .complete-btn:hover, .complete-btn:active { background: rgba(0,200,122,0.22) !important; }
 .edit-btn {
   background: rgba(99,120,200,0.12) !important;
-  border: 1px solid rgba(99,120,200,0.35) !important;
+  border: 1px solid rgba(99,120,200,0.4) !important;
   color: #8ba3f5 !important;
 }
 .edit-btn:hover, .edit-btn:active {
   background: rgba(99,120,200,0.22) !important;
-  border-color: rgba(99,120,200,0.55) !important;
+  border-color: rgba(99,120,200,0.6) !important;
   color: #a8bef8 !important;
 }
 .delete-btn {
-  flex: 0 0 auto !important;
   background: rgba(239,68,68,0.1) !important;
-  border: 1px solid rgba(239,68,68,0.35) !important;
+  border: 1px solid rgba(239,68,68,0.4) !important;
   color: #f87171 !important;
 }
 .delete-btn:hover, .delete-btn:active {
   background: rgba(239,68,68,0.22) !important;
-  border-color: rgba(239,68,68,0.55) !important;
+  border-color: rgba(239,68,68,0.6) !important;
   color: #fca5a5 !important;
+}
+
+.task-actions-row {
+  display: flex !important;
+  gap: 7px !important;
+  width: 100% !important;
+}
+.task-actions-row .edit-btn,
+.task-actions-row .delete-btn {
+  flex: 1 !important;
+}
+
+/* ── Mobile: Done spans full row, Edit+Delete share the row below ── */
+@media (max-width: 540px) {
+  .task-actions {
+    flex-direction: column !important;
+    gap: 7px !important;
+  }
+  .complete-btn {
+    width: 100% !important;
+    min-height: 44px !important;
+    font-size: 14px !important;
+  }
+  .edit-btn, .delete-btn {
+    flex: 1 1 45% !important;
+    min-height: 40px !important;
+    font-size: 13px !important;
+    /* Sit side by side in their own row */
+    flex-direction: row !important;
+  }
+  /* Re-enable row layout for edit+delete pair */
+  .task-actions-row {
+    display: flex !important;
+    gap: 7px !important;
+    width: 100% !important;
+  }
 }
 
 /* Light theme overrides for task buttons */
 body:not(.dark) .edit-btn {
   background: rgba(59,130,246,0.08) !important;
-  border: 1px solid rgba(59,130,246,0.3) !important;
+  border: 1px solid rgba(59,130,246,0.35) !important;
   color: #2563eb !important;
 }
 body:not(.dark) .edit-btn:hover {
@@ -2052,20 +2088,12 @@ body:not(.dark) .edit-btn:hover {
 }
 body:not(.dark) .delete-btn {
   background: rgba(220,38,38,0.07) !important;
-  border: 1px solid rgba(220,38,38,0.3) !important;
+  border: 1px solid rgba(220,38,38,0.35) !important;
   color: #dc2626 !important;
 }
 body:not(.dark) .delete-btn:hover {
   background: rgba(220,38,38,0.15) !important;
   color: #b91c1c !important;
-}
-
-@media (max-width: 480px) {
-  .complete-btn, .edit-btn, .delete-btn {
-    min-height: 42px !important;
-    font-size: 12px !important;
-  }
-  .delete-btn { flex: 1 !important; }
 }
 
 /* ═══════════════════════════════════════════════════════════════

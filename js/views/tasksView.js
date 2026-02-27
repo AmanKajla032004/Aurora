@@ -288,9 +288,13 @@ function renderTaskItem(task, isCompleted=false) {
       <div class="task-actions">
         ${!isCompleted?`
           <button data-complete="${task.id}" class="complete-btn">✓ Done</button>
-          <button data-edit="${task.id}" class="edit-btn">✎ Edit</button>
-        `:""}
-        <button data-delete="${task.id}" class="delete-btn">✕ Delete</button>
+          <div class="task-actions-row">
+            <button data-edit="${task.id}" class="edit-btn">✎ Edit</button>
+            <button data-delete="${task.id}" class="delete-btn">✕ Delete</button>
+          </div>
+        `:`
+          <button data-delete="${task.id}" class="delete-btn" style="width:100%">✕ Delete</button>
+        `}
       </div>
     </div>`;
 }
