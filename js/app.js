@@ -111,17 +111,27 @@ function setupMobileSidebar() {
 // ── Auth ──────────────────────────────────────────
 initAuthLogic(() => localStorage.setItem("aurora_login_time", Date.now().toString()));
 
+// onAuthStateChanged fires once with null while Firebase reads its session from IndexedDB.
+// We must NOT show the login screen on that first null — only after Firebase has finished
+// its initialization. We track this with a flag.
+let _authResolved = false;
+
 listenToAuthState(async user => {
   if (user) {
+    _authResolved = true;
+
     // If we just registered and are showing the verify screen, don't enter app yet
     if (sessionStorage.getItem("aurora_pending_verify")) return;
 
     const t = parseInt(localStorage.getItem("aurora_login_time") || "0");
-    if (t && (Date.now()-t) > ONE_MONTH) { localStorage.removeItem("aurora_login_time"); await logout(); return; }
-    // Set login time if missing (e.g. after a refresh — keeps session alive)
-    if (!t) localStorage.setItem("aurora_login_time", Date.now().toString());
+    if (t && (Date.now()-t) > ONE_MONTH) {
+      localStorage.removeItem("aurora_login_time");
+      await logout();
+      return;
+    }
+    localStorage.setItem("aurora_login_time", Date.now().toString());
 
-    // Restore theme FIRST so there's no flash
+    // Restore theme FIRST — no flash of wrong theme
     const sc = localStorage.getItem("aurora_combo");
     if (sc) { applyCombo(sc); }
     else { applyTheme(localStorage.getItem("aurora_theme") === "dark"); applyAccent(localStorage.getItem("aurora_accent") || "green"); }
@@ -129,11 +139,23 @@ listenToAuthState(async user => {
     authLayer.style.display    = "none";
     appContainer.style.display = "flex";
 
-    // Restore last visited route on refresh, default to home
+    // Navigate to last visited route (or home on first login)
     const lastRoute = localStorage.getItem("aurora_last_route") || "home";
     await navigate(lastRoute);
     startDeadlineReminder();
+
   } else {
+    // Firebase fires null immediately on page load before checking its session.
+    // Only show the login screen once Firebase confirms there is truly no session.
+    // We do this by waiting a short tick — if user fires right after, we never see the null.
+    if (!_authResolved) {
+      // First null — Firebase still loading. Wait 1 second before giving up.
+      await new Promise(r => setTimeout(r, 1000));
+      // If still no user after 1 second, it's a genuine logged-out state.
+      if (_authResolved) return; // user arrived in the meantime, do nothing
+    }
+
+    _authResolved = true;
     localStorage.removeItem("aurora_login_time");
     appContainer.style.display = "none";
     authLayer.style.display    = "block";

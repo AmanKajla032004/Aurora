@@ -4,10 +4,22 @@ import {
   collection, doc, getDoc, getDocs, addDoc, deleteDoc,
   updateDoc, query, where, orderBy, serverTimestamp, limit, onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+function waitForUser() {
+  return new Promise((resolve, reject) => {
+    if (auth.currentUser) { resolve(auth.currentUser); return; }
+    const unsub = onAuthStateChanged(auth, user => {
+      unsub();
+      if (user) resolve(user);
+      else reject(new Error("Not logged in"));
+    });
+  });
+}
 
 // ── Profile ───────────────────────────────────────────────────
 export async function setPublicProfile(username, photoURL) {
-  const user = auth.currentUser;
+  const user = await waitForUser().catch(() => null);
   if (!user) return;
   const { setDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
   const defaultUsername = user.email.split("@")[0].toLowerCase().replace(/[^a-z0-9_]/g, "");
@@ -23,7 +35,7 @@ export async function setPublicProfile(username, photoURL) {
 }
 
 export async function getMyProfile() {
-  const user = auth.currentUser;
+  const user = await waitForUser().catch(() => null);
   if (!user) return null;
   const snap = await getDoc(doc(db, "users", user.uid));
   return snap.exists() ? { uid: user.uid, ...snap.data() } : null;
@@ -45,7 +57,7 @@ export async function findUserByEmail(email) {
 
 // ── Online status ─────────────────────────────────────────────
 export async function setOnlineStatus(online) {
-  const user = auth.currentUser;
+  const user = await waitForUser().catch(() => null);
   if (!user) return;
   const { setDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
   await setDoc(doc(db, "users", user.uid), {
@@ -56,7 +68,7 @@ export async function setOnlineStatus(online) {
 }
 
 export async function setShowOnlineStatus(show) {
-  const user = auth.currentUser;
+  const user = await waitForUser().catch(() => null);
   if (!user) return;
   const { setDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
   await setDoc(doc(db, "users", user.uid), { showOnlineStatus: show }, { merge: true });
@@ -73,7 +85,7 @@ export function listenToOnlineStatus(uid, callback) {
 
 // ── Friend requests ───────────────────────────────────────────
 export async function sendFriendRequest(toUid) {
-  const me = auth.currentUser;
+  const me = await waitForUser();
   if (!me) throw new Error("Not logged in");
   if (toUid === me.uid) throw new Error("You can't add yourself!");
 
@@ -99,7 +111,7 @@ export async function sendFriendRequest(toUid) {
 }
 
 export async function getIncomingRequests() {
-  const me = auth.currentUser;
+  const me = await waitForUser().catch(() => null);
   if (!me) return [];
   const snap = await getDocs(query(
     collection(db, "friendRequests"),
@@ -110,7 +122,7 @@ export async function getIncomingRequests() {
 }
 
 export async function acceptRequest(reqId, fromUid) {
-  const me = auth.currentUser;
+  const me = await waitForUser().catch(() => null);
   if (!me) return;
   const { setDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
   await updateDoc(doc(db, "friendRequests", reqId), { status: "accepted" });
@@ -123,7 +135,7 @@ export async function declineRequest(reqId) {
 }
 
 export async function getFriends() {
-  const me = auth.currentUser;
+  const me = await waitForUser().catch(() => null);
   if (!me) return [];
   const snap = await getDocs(collection(db, "users", me.uid, "friends"));
   const friends = [];
@@ -135,7 +147,7 @@ export async function getFriends() {
 }
 
 export async function removeFriend(friendUid) {
-  const me = auth.currentUser;
+  const me = await waitForUser().catch(() => null);
   if (!me) return;
   await deleteDoc(doc(db, "users", me.uid, "friends", friendUid));
   await deleteDoc(doc(db, "users", friendUid, "friends", me.uid));
@@ -150,7 +162,7 @@ export async function getFriendTasks(friendUid) {
 function chatId(a, b) { return [a, b].sort().join("_"); }
 
 export async function sendMessage(toUid, text) {
-  const me = auth.currentUser;
+  const me = await waitForUser().catch(() => null);
   if (!me || !text.trim()) return;
   const id = chatId(me.uid, toUid);
   const myProfile = await getMyProfile();
@@ -171,7 +183,7 @@ export async function sendMessage(toUid, text) {
 }
 
 export function listenToMessages(toUid, callback) {
-  const me = auth.currentUser;
+  const me = auth.currentUser;  // sync ok — listenToMessages called after auth resolves
   if (!me) return () => {};
   const id = chatId(me.uid, toUid);
   const q  = query(collection(db, "chats", id, "messages"), orderBy("createdAt", "asc"), limit(100));
@@ -179,7 +191,7 @@ export function listenToMessages(toUid, callback) {
 }
 
 export async function getUnreadCount(fromUid) {
-  const me = auth.currentUser;
+  const me = await waitForUser().catch(() => null);
   if (!me) return 0;
   const id   = chatId(me.uid, fromUid);
   const snap = await getDocs(query(
@@ -191,7 +203,7 @@ export async function getUnreadCount(fromUid) {
 }
 
 export async function markMessagesRead(fromUid) {
-  const me = auth.currentUser;
+  const me = await waitForUser().catch(() => null);
   if (!me) return;
   const id   = chatId(me.uid, fromUid);
   const snap = await getDocs(query(
@@ -209,7 +221,7 @@ export async function markMessagesRead(fromUid) {
 // ── Profile Photo ─────────────────────────────────────────────
 // Tries Firebase Storage first; if unavailable falls back to base64 in Firestore
 export async function uploadProfilePhoto(file) {
-  const user = auth.currentUser;
+  const user = await waitForUser();
   if (!user) throw new Error("Not logged in");
 
   // Compress first (needed for both paths)
