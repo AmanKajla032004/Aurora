@@ -167,19 +167,33 @@ export async function initHome() {
   // Focus tasks
   const focus = tasks.filter(t => !t.completed).sort((a,b)=>(b.priority||0)-(a.priority||0)).slice(0,4);
 
+  // Parse due date in local time (avoid UTC offset issues)
+  const parseLocal = (dueDate) => {
+    if (!dueDate) return null;
+    const dp = dueDate.slice(0,10);
+    const [y,mo,d] = dp.split("-").map(Number);
+    return new Date(y, mo-1, d, 23, 59, 59, 999);
+  };
+
   // Upcoming deadlines
-  const upcoming = tasks.filter(t => !t.completed && t.dueDate && new Date(t.dueDate) >= now)
-    .sort((a,b) => new Date(a.dueDate)-new Date(b.dueDate)).slice(0,4);
+  const upcoming = tasks.filter(t => {
+    if (t.completed || !t.dueDate) return false;
+    const dl = parseLocal(t.dueDate);
+    return dl && dl >= now;
+  }).sort((a,b) => parseLocal(a.dueDate) - parseLocal(b.dueDate)).slice(0,4);
 
   const pColors = { 1:"#6b7280",2:"#f59e0b",3:"#f97316",4:"#ef4444",5:"#dc2626" };
   const pLabels = { 1:"Low",2:"Medium",3:"High",4:"Very High",5:"Critical" };
 
-  function daysUntil(ds) {
-    const diff = Math.ceil((new Date(ds)-now)/86400000);
-    if (diff===0) return "Today";
-    if (diff===1) return "Tomorrow";
-    if (diff<0)   return `${Math.abs(diff)}d overdue`;
-    return `in ${diff}d`;
+  function daysUntil(dueDate) {
+    const dl = parseLocal(dueDate);
+    if (!dl) return "";
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    const diffDays = Math.ceil((dl - now) / 86400000);
+    if (dl <= todayEnd && dl >= new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0,0,0)) return "Today";
+    if (diffDays === 1) return "Tomorrow";
+    if (diffDays < 0) return `${Math.abs(diffDays)}d overdue`;
+    return `in ${diffDays}d`;
   }
 
   // Inject stats

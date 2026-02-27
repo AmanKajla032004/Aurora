@@ -1,22 +1,14 @@
 // ─── Friends Service ──────────────────────────────────────────
-import { db, auth } from "./firebaseConfig.js";
+import { db, auth, authReady } from "./firebaseConfig.js";
 import {
   collection, doc, getDoc, getDocs, addDoc, deleteDoc,
   updateDoc, query, where, orderBy, serverTimestamp, limit, onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-let _cachedUser = null, _authReady = false;
-const _authCbs = [];
-onAuthStateChanged(auth, user => {
-  _cachedUser = user; _authReady = true;
-  _authCbs.splice(0).forEach(fn => fn(user));
-});
-function waitForUser() {
-  return new Promise((resolve, reject) => {
-    if (_authReady) { _cachedUser ? resolve(_cachedUser) : reject(new Error("Not logged in")); return; }
-    _authCbs.push(user => { user ? resolve(user) : reject(new Error("Not logged in")); });
-  });
+async function waitForUser() {
+  const user = await authReady;
+  if (!user) throw new Error("Not logged in");
+  return user;
 }
 
 // ── Profile ───────────────────────────────────────────────────

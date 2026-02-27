@@ -1,6 +1,7 @@
 import { navigate } from "./router.js";
 import { initAuthLogic } from "./views/authView.js";
 import { listenToAuthState, logout } from "./firebase/authService.js";
+import { authReady } from "./firebase/firebaseConfig.js";
 import { startDeadlineReminder } from "./deadlineReminder.js";
 
 const authLayer   = document.getElementById("authLayer");
@@ -111,16 +112,10 @@ function setupMobileSidebar() {
 // ── Auth ──────────────────────────────────────────
 initAuthLogic(() => localStorage.setItem("aurora_login_time", Date.now().toString()));
 
-// Firebase fires onAuthStateChanged twice on page load:
-// First with null (while reading IndexedDB), then with the real user.
-// We MUST NOT react to the first null — only show login after auth is truly resolved.
-let _appLaunched = false;
-
-listenToAuthState(async user => {
+// Use the shared authReady promise — it resolves ONCE with the definitive auth state.
+// No races, no double-fires, no guessing about initialization timing.
+authReady.then(async user => {
   if (user) {
-    if (_appLaunched) return; // already running, ignore re-fires
-    _appLaunched = true;
-
     // If we just registered and are showing the verify screen, don't enter app yet
     if (sessionStorage.getItem("aurora_pending_verify")) return;
 
@@ -146,26 +141,20 @@ listenToAuthState(async user => {
     startDeadlineReminder();
 
   } else {
-    if (_appLaunched) {
-      // User actively logged out — show login screen
-      _appLaunched = false;
-      localStorage.removeItem("aurora_login_time");
-      appContainer.style.display = "none";
-      authLayer.style.display    = "block";
-      return;
-    }
-    // First null on page load — Firebase is still reading its session.
-    // Wait up to 3s; if the real user arrives we never show login.
-    // If no user after 3s, it's a genuine logged-out state.
-    const userArrived = await new Promise(resolve => {
-      const unsub = listenToAuthState(u => { if (u !== null) { unsub(); resolve(true); } });
-      setTimeout(() => resolve(false), 3000);
-    });
-    if (!userArrived) {
-      localStorage.removeItem("aurora_login_time");
-      appContainer.style.display = "none";
-      authLayer.style.display    = "block";
-    }
+    // Genuinely not logged in
+    localStorage.removeItem("aurora_login_time");
+    appContainer.style.display = "none";
+    authLayer.style.display    = "block";
+  }
+});
+
+// Handle logout after app is running (onAuthStateChanged continues firing)
+listenToAuthState(user => {
+  if (!user && appContainer.style.display === "flex") {
+    // User logged out while app was running
+    localStorage.removeItem("aurora_login_time");
+    appContainer.style.display = "none";
+    authLayer.style.display    = "block";
   }
 });
 

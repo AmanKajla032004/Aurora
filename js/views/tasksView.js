@@ -360,29 +360,14 @@ function attachDragEvents() {
       const dstTask = allTasks.find(t => t.id === item.dataset.id);
       if (!srcTask || !dstTask) return;
 
-      // Same block: swap priorities
-      if (srcTask.type === dstTask.type) {
-        const srcPri = srcTask.priority, dstPri = dstTask.priority;
-        if (srcPri !== dstPri) {
-          srcTask.priority = dstPri;
-          dstTask.priority = srcPri;
-          // Optimistic UI — just re-sort without full reload
-          renderSections();
-          // Persist in background
-          try {
-            await updateTaskInCloud(srcTask.id, { priority: srcTask.priority });
-            await updateTaskInCloud(dstTask.id, { priority: dstTask.priority });
-          } catch(err) { console.error("Priority swap failed", err); }
-        }
-      } else {
-        // Different blocks: reorder in array only (visual sort)
-        const si = allTasks.findIndex(t => t.id === dragSrcId);
-        const di = allTasks.findIndex(t => t.id === item.dataset.id);
-        if (si !== -1 && di !== -1) {
-          const [m] = allTasks.splice(si, 1);
-          allTasks.splice(di, 0, m);
-          renderSections();
-        }
+      // Reorder visually only — never auto-change priorities in the database.
+      // Priority is only changed by the user explicitly in the edit modal.
+      const si = allTasks.findIndex(t => t.id === dragSrcId);
+      const di = allTasks.findIndex(t => t.id === item.dataset.id);
+      if (si !== -1 && di !== -1) {
+        const [m] = allTasks.splice(si, 1);
+        allTasks.splice(di, 0, m);
+        renderSections();
       }
 
       item.classList.remove("drag-over");

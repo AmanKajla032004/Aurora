@@ -1,4 +1,4 @@
-import { db, auth } from "./firebaseConfig.js";
+import { db, auth, authReady } from "./firebaseConfig.js";
 import {
   collection,
   addDoc,
@@ -8,34 +8,13 @@ import {
   updateDoc,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-// Wait for Firebase Auth to fully resolve before making Firestore calls.
-// onAuthStateChanged fires null first while reading from IndexedDB — this ensures
-// we get the real user before trying to access their data.
-// Wait for Firebase to finish reading its session from IndexedDB.
-// onAuthStateChanged fires null immediately then the real user — we must
-// wait for the FIRST non-null fire, or confirm there truly is no user.
-let _cachedUser = null;
-let _authReady  = false;
-const _authCallbacks = [];
-
-onAuthStateChanged(auth, user => {
-  _cachedUser = user;
-  _authReady  = true;
-  _authCallbacks.splice(0).forEach(fn => fn(user));
-});
-
-function waitForUser() {
-  return new Promise((resolve, reject) => {
-    if (_authReady) {
-      _cachedUser ? resolve(_cachedUser) : reject(new Error("Not logged in"));
-      return;
-    }
-    _authCallbacks.push(user => {
-      user ? resolve(user) : reject(new Error("Not logged in"));
-    });
-  });
+// Use the shared authReady promise from firebaseConfig.
+// This waits for Firebase to finish reading its IndexedDB session — never races.
+async function waitForUser() {
+  const user = await authReady;
+  if (!user) throw new Error("Not logged in");
+  return user;
 }
 
 async function getUserTaskCollection() {

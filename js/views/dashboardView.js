@@ -18,24 +18,70 @@ export async function initDashboard() {
 
   // ── Stats ──
   const todayStr  = now.toDateString();
-  const doneToday = tasks.filter(t => t.completed && t.completedAt &&
-    new Date(t.completedAt.seconds ? t.completedAt.seconds*1000 : t.completedAt).toDateString() === todayStr).length;
+
+  // Parse dueDate in LOCAL time to avoid UTC-offset bugs (e.g. IST = UTC+5:30)
+  const parseDueDate = (dueDate, dueTime) => {
+    if (!dueDate) return null;
+    const dp = dueDate.length > 10 ? dueDate.slice(0, 10) : dueDate;
+    const [y, mo, d] = dp.split("-").map(Number);
+    if (dueTime) { const [h, m] = dueTime.split(":").map(Number); return new Date(y, mo-1, d, h, m, 0, 0); }
+    return new Date(y, mo-1, d, 23, 59, 59, 999); // end of day local
+  };
+
+  const completedAt = t => t.completedAt
+    ? new Date(t.completedAt.seconds ? t.completedAt.seconds*1000 : t.completedAt)
+    : null;
+
+  const doneToday = tasks.filter(t => {
+    const ca = completedAt(t);
+    return t.completed && ca && ca.toDateString() === todayStr;
+  }).length;
   const totalDone = tasks.filter(t => t.completed).length;
   const pending   = tasks.filter(t => !t.completed).length;
-  const overdue   = tasks.filter(t => !t.completed && t.dueDate && new Date(t.dueDate) < now).length;
-  const weekDone  = tasks.filter(t => t.completed && t.completedAt &&
-    (now - new Date(t.completedAt.seconds ? t.completedAt.seconds*1000 : t.completedAt)) <= 7*86400000).length;
+
+  // Overdue: only tasks with explicit custom deadlines that have passed
+  // (mirrors tasksView isMissed logic — weekly/monthly without customDeadline don't count)
+  const overdue = tasks.filter(t => {
+    if (t.completed || !t.dueDate) return false;
+    if (t.type === "daily") return false;
+    if (!t.customDeadline && (t.type === "weekly" || t.type === "monthly" || t.type === "yearly")) return false;
+    const dl = parseDueDate(t.dueDate, t.dueTime);
+    return dl && dl < now;
+  }).length;
+
+  // This calendar week (Mon–Sun)
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - ((now.getDay() + 6) % 7)); // Monday
+  weekStart.setHours(0, 0, 0, 0);
+  const weekDone = tasks.filter(t => {
+    const ca = completedAt(t);
+    return t.completed && ca && ca >= weekStart;
+  }).length;
 
   // ── Streak ──
   // Streak = any day where at least one task was completed (any type)
+  const calcStreak = (taskList) => {
+    const now2 = new Date();
+    const doneDays = new Set(taskList.filter(t => t.completed && t.completedAt)
+      .map(t => new Date(t.completedAt.seconds ? t.completedAt.seconds*1000 : t.completedAt).toDateString()));
+    let s = 0;
+    for (let i = 0; i <= 365; i++) {
+      const d = new Date(now2); d.setDate(now2.getDate()-i);
+      if (doneDays.has(d.toDateString())) s++;
+      else if (i > 0) break;
+    }
+    return s;
+  };
   const doneDays = new Set(tasks.filter(t => t.completed && t.completedAt)
     .map(t => new Date(t.completedAt.seconds ? t.completedAt.seconds*1000 : t.completedAt).toDateString()));
-  let streak = 0;
-  for (let i = 0; i <= 365; i++) {
-    const d = new Date(now); d.setDate(now.getDate()-i);
-    if (doneDays.has(d.toDateString())) streak++;
-    else if (i > 0) break;
-  }
+  let streak = calcStreak(tasks);
+
+  // Live-update streak when a task is completed from tasks page
+  window.addEventListener("taskCompleted", (e) => {
+    const newStreak = calcStreak(e.detail.tasks);
+    const el = document.querySelector(".stat-value[data-streak]") || document.querySelector(".stat-card:nth-child(4) .stat-value");
+    if (el) el.textContent = newStreak + "d";
+  }, { once: false });
 
   // ── Last 7 days ──
   const last7 = [], last7L = [];
@@ -66,12 +112,14 @@ export async function initDashboard() {
   const deadlines = tasks.filter(t => !t.completed && t.dueDate)
     .sort((a,b) => new Date(a.dueDate)-new Date(b.dueDate)).slice(0,5);
 
-  function daysUntil(ds) {
-    const diff = Math.ceil((new Date(ds) - now) / 86400000);
-    if (diff < 0)  return { label:`${Math.abs(diff)}d overdue`, cls:"deadline-overdue" };
-    if (diff === 0) return { label:"Today",    cls:"deadline-today" };
-    if (diff === 1) return { label:"Tomorrow", cls:"" };
-    return { label:`${diff} days`, cls:"" };
+  function daysUntil(dueDate, dueTime) {
+    const dl = parseDueDate(dueDate, dueTime);
+    if (!dl) return { label: "No date", cls: "" };
+    const diffDays = Math.ceil((dl - now) / 86400000);
+    if (dl < now && diffDays < 0) return { label: `${Math.abs(diffDays)}d overdue`, cls: "deadline-overdue" };
+    if (dl.toDateString() === now.toDateString()) return { label: "Today", cls: "deadline-today" };
+    if (diffDays === 1) return { label: "Tomorrow", cls: "" };
+    return { label: `${diffDays} days`, cls: "" };
   }
 
   // ── Weekly ring ──
@@ -136,7 +184,7 @@ export async function initDashboard() {
       <h3 class="card-title">📅 Upcoming Deadlines</h3>
       ${deadlines.length
         ? `<ul class="deadline-list">${deadlines.map(t => {
-            const {label,cls} = daysUntil(t.dueDate);
+            const {label,cls} = daysUntil(t.dueDate, t.dueTime);
             return `<li class="deadline-item">
               <span class="deadline-name">${t.title}</span>
               <span class="deadline-when ${cls}">${label}</span>
