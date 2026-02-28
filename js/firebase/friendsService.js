@@ -20,12 +20,14 @@ export async function setPublicProfile(username, photoURL) {
   if (!user) return;
   const { setDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
   const defaultUsername = user.email.split("@")[0].toLowerCase().replace(/[^a-z0-9_]/g, "");
+  const resolvedUsername = (username || defaultUsername).toLowerCase().replace(/[^a-z0-9_]/g, "");
   const data = {
-    publicEmail: user.email.toLowerCase(),
-    displayName: user.displayName || defaultUsername,
-    username: username || defaultUsername,
-    uid: user.uid,
-    updatedAt: serverTimestamp()
+    publicEmail:   user.email.toLowerCase(),
+    displayName:   user.displayName || resolvedUsername,
+    username:      resolvedUsername,
+    usernameLower: resolvedUsername,          // indexed field for case-insensitive search
+    uid:           user.uid,
+    updatedAt:     serverTimestamp()
   };
   if (photoURL) data.photoURL = photoURL;
   await setDoc(doc(db, "users", user.uid), data, { merge: true });
@@ -44,45 +46,22 @@ export async function getMyProfile() {
 // slow or missing field never blocks the others.
 // Returns the first matching user doc, or null.
 export async function findUser(input) {
-  const raw       = (input || "").trim();
-  const lower     = raw.toLowerCase();
-  const noAt      = lower.replace(/^@/, "");
-  // "sanitized" = what setPublicProfile derives from an email prefix
-  const sanitized = noAt.replace(/[^a-z0-9_]/g, "");
-
-  // Build every query that could match this input
-  const queries = [];
+  const raw   = (input || "").trim();
+  const lower = raw.toLowerCase().replace(/^@/, "");
+  if (!lower) return null;
 
   if (lower.includes("@")) {
-    // Looks like an email — prioritise email field variants
-    queries.push(
-      getDocs(query(collection(db, "users"), where("publicEmail", "==", lower))),
-      getDocs(query(collection(db, "users"), where("email",       "==", lower))),
-      // Also try as username in case they stored their email as username
-      getDocs(query(collection(db, "users"), where("username",    "==", lower))),
+    // Email lookup — query publicEmail field
+    const snap = await getDocs(
+      query(collection(db, "users"), where("publicEmail", "==", lower))
     );
+    if (!snap.empty) return { uid: snap.docs[0].id, ...snap.docs[0].data() };
   } else {
-    // Looks like a username — try username field variants + email prefix match
-    queries.push(
-      getDocs(query(collection(db, "users"), where("username",    "==", noAt))),
-      getDocs(query(collection(db, "users"), where("displayName", "==", noAt))),
+    // Username lookup — query usernameLower field (always lowercase, set on write)
+    const snap = await getDocs(
+      query(collection(db, "users"), where("usernameLower", "==", lower))
     );
-    if (sanitized && sanitized !== noAt) {
-      // e.g. input "john.doe" → sanitized "johndoe"
-      queries.push(
-        getDocs(query(collection(db, "users"), where("username",    "==", sanitized))),
-        getDocs(query(collection(db, "users"), where("displayName", "==", sanitized))),
-      );
-    }
-  }
-
-  // Run all queries in parallel; take the first non-empty result
-  const results = await Promise.allSettled(queries);
-  for (const r of results) {
-    if (r.status === "fulfilled" && !r.value.empty) {
-      const d = r.value.docs[0];
-      return { uid: d.id, ...d.data() };
-    }
+    if (!snap.empty) return { uid: snap.docs[0].id, ...snap.docs[0].data() };
   }
   return null;
 }
@@ -119,15 +98,18 @@ export async function ensurePublicProfile() {
       !data.publicEmail ||
       data.publicEmail !== user.email.toLowerCase() ||
       !data.username ||
+      !data.usernameLower ||
       !data.uid
     );
     if (needsPatch) {
+      const resolvedUsername = (data.username || defaultUsername).toLowerCase().replace(/[^a-z0-9_]/g, "");
       const { setDoc: sd } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
       await sd(doc(db, "users", user.uid), {
-        publicEmail: user.email.toLowerCase(),
-        username: data.username || defaultUsername,
-        displayName: data.displayName || defaultUsername,
-        uid: user.uid
+        publicEmail:   user.email.toLowerCase(),
+        username:      resolvedUsername,
+        usernameLower: resolvedUsername,
+        displayName:   data.displayName || resolvedUsername,
+        uid:           user.uid
       }, { merge: true });
     }
   }
