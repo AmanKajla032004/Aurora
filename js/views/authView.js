@@ -227,7 +227,7 @@ export function initAuthLogic(onSuccess) {
 function friendlyError(code) {
   const map = {
     "auth/user-not-found":              "No account found with that email.",
-    "auth/username-not-found":          "No Aurora account found for that username.",
+    "auth/username-not-found":          "No account found for that username. Try your email address instead, or check the spelling.",
     "auth/wrong-password":              "Incorrect password. Try again.",
     "auth/invalid-credential":          "Incorrect email/username or password.",
     "auth/invalid-email":               "Please enter a valid email address.",

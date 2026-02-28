@@ -6,9 +6,12 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 async function waitForUser() {
+  // Check currentUser first — covers post-login calls where authReady may be stale null
+  if (auth.currentUser) return auth.currentUser;
   const user = await authReady;
-  if (!user) throw new Error("Not logged in");
-  return user;
+  if (user) return user;
+  if (auth.currentUser) return auth.currentUser;
+  throw new Error("Not logged in");
 }
 
 // ── Profile ───────────────────────────────────────────────────
@@ -18,7 +21,7 @@ export async function setPublicProfile(username, photoURL) {
   const { setDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
   const defaultUsername = user.email.split("@")[0].toLowerCase().replace(/[^a-z0-9_]/g, "");
   const data = {
-    publicEmail: user.email,
+    publicEmail: user.email.toLowerCase(),
     displayName: user.displayName || defaultUsername,
     username: username || defaultUsername,
     uid: user.uid,
@@ -36,17 +39,79 @@ export async function getMyProfile() {
 }
 
 export async function findUserByUsername(username) {
-  const q = query(collection(db, "users"), where("username", "==", username.trim().toLowerCase()));
-  const snap = await getDocs(q);
-  if (snap.empty) return null;
-  return { uid: snap.docs[0].id, ...snap.docs[0].data() };
+  const raw   = username.trim().replace(/^@/, "");
+  const uname = raw.toLowerCase();
+  // Sanitized version: what setPublicProfile stores as defaultUsername
+  const sanitized = uname.replace(/[^a-z0-9_]/g, "");
+
+  // 1. Exact username match
+  const q1 = query(collection(db, "users"), where("username", "==", uname));
+  const snap1 = await getDocs(q1);
+  if (!snap1.empty) return { uid: snap1.docs[0].id, ...snap1.docs[0].data() };
+
+  // 2. Sanitized username match (handles dots/dashes in input)
+  if (sanitized && sanitized !== uname) {
+    const q2 = query(collection(db, "users"), where("username", "==", sanitized));
+    const snap2 = await getDocs(q2);
+    if (!snap2.empty) return { uid: snap2.docs[0].id, ...snap2.docs[0].data() };
+  }
+
+  // 3. displayName match (older profiles without username field)
+  const q3 = query(collection(db, "users"), where("displayName", "==", uname));
+  const snap3 = await getDocs(q3);
+  if (!snap3.empty) return { uid: snap3.docs[0].id, ...snap3.docs[0].data() };
+
+  return null;
 }
 
 export async function findUserByEmail(email) {
-  const q = query(collection(db, "users"), where("publicEmail", "==", email.trim().toLowerCase()));
-  const snap = await getDocs(q);
-  if (snap.empty) return null;
-  return { uid: snap.docs[0].id, ...snap.docs[0].data() };
+  const addr = email.trim().toLowerCase();
+  // Try publicEmail field (how it's stored)
+  const q1 = query(collection(db, "users"), where("publicEmail", "==", addr));
+  const snap1 = await getDocs(q1);
+  if (!snap1.empty) return { uid: snap1.docs[0].id, ...snap1.docs[0].data() };
+  // Fallback: email field (some early docs may use "email" not "publicEmail")
+  const q2 = query(collection(db, "users"), where("email", "==", addr));
+  const snap2 = await getDocs(q2);
+  if (!snap2.empty) return { uid: snap2.docs[0].id, ...snap2.docs[0].data() };
+  return null;
+}
+
+// For username login: look up the real email from a username
+export async function lookupEmailByUsername(username) {
+  const found = await findUserByUsername(username);
+  if (!found) return null;
+  return found.publicEmail || found.email || null;
+}
+
+// Ensure the calling user's public profile doc exists (creates if missing)
+export async function ensurePublicProfile() {
+  const user = await waitForUser().catch(() => null);
+  if (!user) return;
+  const snap = await getDoc(doc(db, "users", user.uid));
+  if (!snap.exists()) {
+    // Create the profile doc if it doesn't exist yet
+    await setPublicProfile(null, null);
+  } else {
+    // Patch any missing or incorrect fields on existing profile docs
+    const data = snap.data();
+    const defaultUsername = user.email.split("@")[0].toLowerCase().replace(/[^a-z0-9_]/g, "");
+    const needsPatch = (
+      !data.publicEmail ||
+      data.publicEmail !== user.email.toLowerCase() ||
+      !data.username ||
+      !data.uid
+    );
+    if (needsPatch) {
+      const { setDoc: sd } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+      await sd(doc(db, "users", user.uid), {
+        publicEmail: user.email.toLowerCase(),
+        username: data.username || defaultUsername,
+        displayName: data.displayName || defaultUsername,
+        uid: user.uid
+      }, { merge: true });
+    }
+  }
 }
 
 // ── Online status ─────────────────────────────────────────────

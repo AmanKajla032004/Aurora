@@ -1,5 +1,5 @@
 import {
-  setPublicProfile, getMyProfile, findUserByEmail, findUserByUsername, sendFriendRequest,
+  setPublicProfile, ensurePublicProfile, getMyProfile, findUserByEmail, findUserByUsername, sendFriendRequest,
   getIncomingRequests, acceptRequest, declineRequest,
   getFriends, removeFriend, getFriendTasks, uploadProfilePhoto
 } from "../firebase/friendsService.js";
@@ -88,7 +88,9 @@ export function renderFriends() {
 let searchType = "username"; // or "email"
 
 export async function initFriends() {
-  await setPublicProfile().catch(() => {});
+  // ensurePublicProfile creates the /users/{uid} doc if missing AND fixes any
+  // non-lowercase email — both are required for friend search to work.
+  await ensurePublicProfile().catch(() => {});
   await loadMyProfile();
   await loadRequests();
   await loadFriends();
@@ -188,23 +190,35 @@ async function doAddFriend() {
   showAddMsg("Searching…", "muted");
 
   try {
-    const me = auth.currentUser;
-    let found = null;
+    const me      = auth.currentUser;
+    const myProfile = await getMyProfile().catch(() => null);
+    let found     = null;
+    const cleaned = raw.replace(/^@/, "").toLowerCase();
 
-    if (searchType === "username") {
-      const q = raw.replace(/^@/, "").toLowerCase();
-      if (!q) throw new Error("Enter a username");
-      if (q === (await getMyProfile().catch(()=>null))?.username)
-        throw new Error("That's your own username!");
-      found = await findUserByUsername(q);
-      if (!found) throw new Error(`No Aurora user found with @${q}`);
+    // Always try both username and email lookup regardless of tab selected.
+    // This handles: typing email in username tab, typing username prefix in email tab, etc.
+    if (cleaned.includes("@")) {
+      // Looks like an email address — try email first, then username
+      if (cleaned === me?.email?.toLowerCase()) throw new Error("That's your own account!");
+      found = await findUserByEmail(cleaned);
+      if (!found) found = await findUserByUsername(cleaned.split("@")[0]);
     } else {
-      const email = raw.toLowerCase();
-      if (email === me?.email?.toLowerCase())
-        throw new Error("That's your own email!");
-      found = await findUserByEmail(email);
-      if (!found) throw new Error("No Aurora account found for that email.");
+      // Looks like a username — try username first, then email prefix
+      if (cleaned === myProfile?.username?.toLowerCase()) throw new Error("That's your own username!");
+      if (!cleaned) throw new Error("Enter a username or email address.");
+      found = await findUserByUsername(cleaned);
+      // If not found by username, maybe they typed the email prefix (e.g. "john" for "john@gmail.com")
+      // We can't search partial emails in Firestore, so we stop here
     }
+    if (!found) {
+      throw new Error(
+        cleaned.includes("@")
+          ? `No Aurora account found for "${cleaned}". Double-check the email address.`
+          : `No Aurora account found for "@${cleaned}". Check the spelling — they must have logged in at least once.`
+      );
+    }
+
+    if (found.uid === me?.uid) throw new Error("That's your own account!");
 
     await sendFriendRequest(found.uid);
     showAddMsg(`✓ Friend request sent to @${found.username || found.displayName || raw}`, "success");

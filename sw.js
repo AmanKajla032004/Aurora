@@ -1,7 +1,7 @@
 // Aurora Planner — Service Worker
 // Caches app shell for offline use
 
-const CACHE = "aurora-v12";
+const CACHE = "aurora-v13";
 
 // Core files to cache on install
 const SHELL = [
