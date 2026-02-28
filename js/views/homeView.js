@@ -105,7 +105,15 @@ export function renderHome() {
 }
 
 export async function initHome() {
-  const tasks = await getTasksFromCloud();
+  // Retry once on failure — covers rare timing gap right after login
+  // where Firestore may not yet recognize the session token
+  let tasks;
+  try {
+    tasks = await getTasksFromCloud();
+  } catch (e) {
+    await new Promise(r => setTimeout(r, 300));
+    tasks = await getTasksFromCloud();
+  }
   const now   = new Date();
 
   // Stats

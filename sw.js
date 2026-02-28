@@ -1,7 +1,7 @@
 // Aurora Planner — Service Worker
 // Caches app shell for offline use
 
-const CACHE = "aurora-v1";
+const CACHE = "aurora-v12";
 
 // Core files to cache on install
 const SHELL = [
@@ -40,6 +40,7 @@ const SHELL = [
   "/js/views/focusMode.js",
   "/js/views/focusRooms.js",
   "/js/views/friendsView.js",
+  "/js/views/wellbeingView.js",
   "/js/views/whisperView.js",
 ];
 

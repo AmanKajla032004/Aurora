@@ -22,11 +22,25 @@
   <link rel="stylesheet" href="css/mobile.css">
   <link rel="stylesheet" href="css/final-overrides.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
 </head>
 <body>
 
 <!-- AUTH LAYER -->
 <div id="authLayer" class="auth-layer" style="display:block">
+<div id="authCheckingOverlay" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:9999;flex-direction:column;gap:16px">
+<script>
+(function(){
+  var combos={aurora:"#0a0e1a",midnight:"#0d0d1a",ocean:"#071825",ember:"#1a0f07",sakura:"#fff5f7",slate:"#f1f5f9",sand:"#faf5eb"};
+  var c=localStorage.getItem("aurora_combo");
+  var bg=c&&combos[c]?combos[c]:(localStorage.getItem("aurora_theme")==="dark"?"#0a0e1a":"#f8fafc");
+  var spinner=c&&["sakura","slate","sand"].includes(c)?"rgba(0,0,0,0.15)":"rgba(0,200,122,0.3)";
+  var spinnerTop=c&&["sakura","slate","sand"].includes(c)?"#64748b":"#00c87a";
+  var textColor=c&&["sakura","slate","sand"].includes(c)?"rgba(30,41,59,0.5)":"rgba(148,163,184,0.7)";
+  document.currentScript.parentElement.style.background=bg;
+  document.currentScript.parentElement.innerHTML+="<div style='width:40px;height:40px;border:3px solid "+spinner+";border-top-color:"+spinnerTop+";border-radius:50%;animation:spin 0.8s linear infinite'></div><div style='color:"+textColor+";font-size:13px;font-family:inherit;letter-spacing:0.5px'>Starting…</div>";
+})();
+</script></div>
   <canvas id="aurora"></canvas>
   <div class="ui-layer">
     <div class="hero" id="hero">
@@ -44,7 +58,7 @@
 
       <!-- Main panel -->
       <div id="authPanelMain" style="display:flex;flex-direction:column;gap:12px;width:100%">
-        <input type="email"    id="authEmail"    placeholder="Email" autocomplete="email">
+        <input type="text"     id="authEmail"    placeholder="Email or username" autocomplete="username">
         <input type="password" id="authPassword" placeholder="Password" autocomplete="current-password">
         <p id="authError" class="auth-error-msg"></p>
         <button id="primaryAuthBtn">Continue</button>

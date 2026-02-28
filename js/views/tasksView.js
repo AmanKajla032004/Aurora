@@ -255,7 +255,20 @@ function renderBlock(title, tasks, isCompleted=false, blockId="") {
 function renderTaskItem(task, isCompleted=false) {
   const pColors={1:"#6b7280",2:"#f59e0b",3:"#f97316",4:"#ef4444",5:"#dc2626"};
   const pLabels={1:"Low",2:"Med",3:"High",4:"V.High",5:"Crit"};
-  const color=pColors[task.priority]||"#6b7280";
+  // Auto-escalate display priority based on deadline proximity (visual only, not saved)
+  let displayPriority = task.priority || 3;
+  if (!isCompleted && task.dueDate) {
+    const dpStr = task.dueDate.slice(0,10);
+    const [dy2,dm2,dd2] = dpStr.split("-").map(Number);
+    const dueLocal = task.dueTime
+      ? (() => { const [h,m]=task.dueTime.split(":").map(Number); return new Date(dy2,dm2-1,dd2,h,m); })()
+      : new Date(dy2,dm2-1,dd2,23,59,59);
+    const daysLeft = (dueLocal - new Date()) / 86400000;
+    if (daysLeft <= 1  && displayPriority < 5) displayPriority = 5;
+    else if (daysLeft <= 3  && displayPriority < 4) displayPriority = 4;
+    else if (daysLeft <= 7  && displayPriority < 3) displayPriority = 3;
+  }
+  const color=pColors[displayPriority]||"#6b7280";
   const subtasks=task.subtasks||[], done=subtasks.filter(s=>s.done).length;
   const buildDl = (dueDate, dueTime) => {
     if (!dueDate) return null;
@@ -284,7 +297,7 @@ function renderTaskItem(task, isCompleted=false) {
           ${task.description?`<div class="task-desc">${task.description}</div>`:""}
           <div class="task-meta">
             <span class="task-badge">${task.type.toUpperCase()}</span>
-            <span class="task-badge" style="background:${color}22;color:${color};border-color:${color}44">${pLabels[task.priority]||""}</span>
+            <span class="task-badge" style="background:${color}22;color:${color};border-color:${color}44">${pLabels[displayPriority]||""}</span>
             ${deadlineStr?`<span class="task-badge">${deadlineStr}</span>`:""}
             ${repeatStr?`<span class="task-badge">${repeatStr}</span>`:""}
           </div>

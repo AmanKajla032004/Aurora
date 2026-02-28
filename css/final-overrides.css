@@ -4,136 +4,189 @@
    stats-section, bottom-stats, charts-section, dash-two-col
    ================================================================ */
 
-/* ─── 1. DASHBOARD ─────────────────────────────────────────────── */
+/* ─── 1. DASHBOARD (dv-*) ───────────────────────────────────────── */
 
-#appContent .dashboard-container {
-  display: flex !important; flex-direction: column !important;
-  gap: 18px !important; width: 100% !important; box-sizing: border-box !important;
+.dv-root {
+  display: flex; flex-direction: column; gap: 20px;
+  padding: 0 0 32px; width: 100%; box-sizing: border-box;
 }
+.dv-loading {
+  display: flex; align-items: center; gap: 12px;
+  padding: 40px; color: var(--muted); font-size: 14px;
+}
+.dv-spinner {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 2px solid var(--accent); border-top-color: transparent;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 
-/* Top 5 stat cards */
-#appContent .stats-section {
-  display: grid !important;
-  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
-  gap: 12px !important; align-items: start !important;
+/* Header */
+.dv-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  padding-bottom: 4px;
 }
+.dv-title {
+  font-size: 26px; font-weight: 800; color: var(--text);
+  margin: 0 0 4px; letter-spacing: -0.5px;
+}
+.dv-subtitle { font-size: 13px; color: var(--muted); margin: 0; }
 
-/* Both stat-card rows compact */
-#appContent .stats-section .stat-card,
-#appContent .bottom-stats   .stat-card {
-  padding: 16px 12px 14px !important;
-  min-height: unset !important; height: auto !important;
-  display: flex !important; flex-direction: column !important;
-  align-items: center !important; justify-content: center !important;
-  gap: 5px !important; text-align: center !important;
-  border-radius: 14px !important;
-  border: 1.5px solid rgba(0,0,0,0.06) !important;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.04) !important;
+/* Progress ring */
+.dv-progress-ring { position: relative; width: 72px; height: 72px; flex-shrink: 0; }
+.dv-ring-svg { width: 72px; height: 72px; transform: rotate(-90deg); }
+.dv-ring-bg { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 5; }
+body:not(.dark) .dv-ring-bg { stroke: rgba(0,0,0,0.06); }
+.dv-ring-fg { fill: none; stroke-width: 5; stroke-linecap: round; transition: stroke-dashoffset 0.6s ease; }
+.dv-ring-inner {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  text-align: center;
 }
-body.dark #appContent .stats-section .stat-card,
-body.dark #appContent .bottom-stats   .stat-card {
-  background: #1c2740 !important;
-  border-color: rgba(255,255,255,0.06) !important;
-  box-shadow: 0 4px 18px rgba(0,0,0,0.3) !important;
-}
-#appContent .stat-card h4 {
-  font-size: 10px !important; font-weight: 700 !important;
-  letter-spacing: 0.8px !important; text-transform: uppercase !important;
-  color: var(--muted) !important; margin: 0 !important; line-height: 1.2 !important;
-}
-#appContent .stat-value {
-  font-size: 30px !important; font-weight: 800 !important;
-  line-height: 1 !important; margin: 0 !important;
-  letter-spacing: -1px !important; color: var(--accent) !important;
-}
+.dv-ring-pct { display: block; font-size: 14px; font-weight: 800; color: var(--text); line-height: 1; }
+.dv-ring-lbl { display: block; font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
 
-/* Charts row — correct height, canvas doesn't overflow */
-#appContent .charts-section {
-  display: grid !important; grid-template-columns: 1fr 1fr !important;
-  gap: 14px !important; overflow: visible !important;
+/* Stat row */
+.dv-stats {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
 }
-#appContent .charts-section .chart-card {
-  height: 230px !important; padding: 18px 20px !important;
-  display: flex !important; flex-direction: column !important;
-  overflow: hidden !important; box-sizing: border-box !important; border-radius: 16px !important;
+.dv-stat {
+  background: var(--surface);
+  border: 1.5px solid rgba(0,0,0,0.05);
+  border-radius: 16px;
+  padding: 14px 12px;
+  display: flex; align-items: center; gap: 10px;
+  box-shadow: 0 1px 8px rgba(0,0,0,0.04);
+  transition: transform 0.15s;
 }
-#appContent .charts-section .chart-card canvas {
-  flex: 1 !important; width: 100% !important;
-  min-height: 0 !important; max-height: 170px !important;
+.dv-stat:hover { transform: translateY(-2px); }
+body.dark .dv-stat { background: #111827; border-color: rgba(255,255,255,0.07); box-shadow: 0 4px 16px rgba(0,0,0,0.25); }
+.dv-stat-alert { border-color: rgba(239,68,68,0.35) !important; }
+.dv-stat-warn  { border-color: rgba(245,158,11,0.35) !important; }
+.dv-stat-icon {
+  width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 700;
 }
+.dv-stat-body { min-width: 0; }
+.dv-stat-num { font-size: 22px; font-weight: 800; line-height: 1; letter-spacing: -0.5px; color: var(--text); }
+.dv-stat-lbl { font-size: 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; margin-top: 2px; }
 
-/* Top tasks + deadlines — auto height */
-#appContent .dash-two-col {
-  display: grid !important; grid-template-columns: 1fr 1fr !important;
-  gap: 14px !important; align-items: start !important;
+/* Main grid */
+.dv-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
 }
-#appContent .dash-two-col .chart-card {
-  height: auto !important; min-height: unset !important;
-  padding: 18px 20px !important; border-radius: 16px !important;
+.dv-card {
+  background: var(--surface);
+  border: 1.5px solid rgba(0,0,0,0.05);
+  border-radius: 18px;
+  padding: 18px 20px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
 }
+body.dark .dv-card { background: #111827; border-color: rgba(255,255,255,0.07); box-shadow: 0 4px 20px rgba(0,0,0,0.25); }
+.dv-card-wide { grid-column: 1 / -1; }
+.dv-card-types { grid-column: 1 / -1; }
 
-/* Bottom 4 blocks — ring + 2 stats + type chart */
-#appContent .bottom-stats {
-  display: grid !important;
-  grid-template-columns: 90px 90px 90px 1fr !important;
-  gap: 12px !important; align-items: start !important;
-}
-#appContent .bottom-stats .chart-card {
-  height: auto !important; min-height: unset !important;
-  padding: 14px 16px !important; display: flex !important;
-  flex-direction: column !important; overflow: hidden !important; border-radius: 14px !important;
-}
-#appContent .bottom-stats .chart-card canvas {
-  width: 100% !important;
-  height: 80px !important; min-height: 80px !important; max-height: 80px !important;
-}
+.dv-card-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 14px; }
+.dv-card-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text); }
+.dv-card-sub { font-size: 11px; color: var(--muted); margin-left: auto; }
 
-/* Chart card base */
-#appContent .chart-card {
-  background: var(--surface) !important;
-  border: 1.5px solid rgba(0,0,0,0.06) !important;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.04) !important;
+/* Custom bar chart */
+.dv-bar-chart {
+  display: flex; align-items: flex-end; gap: 8px; height: 120px;
 }
-body.dark #appContent .chart-card {
-  background: #1c2740 !important;
-  border-color: rgba(255,255,255,0.06) !important;
-  box-shadow: 0 4px 18px rgba(0,0,0,0.3) !important;
+.dv-bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; }
+.dv-bar-wrap { flex: 1; width: 100%; display: flex; align-items: flex-end; }
+.dv-bar-fill {
+  width: 100%; border-radius: 6px 6px 0 0; min-height: 4px;
+  position: relative; transition: height 0.4s ease;
 }
-#appContent .card-title, #appContent .chart-card h3 {
-  font-size: 11px !important; font-weight: 700 !important;
-  letter-spacing: 0.8px !important; text-transform: uppercase !important;
-  color: var(--text) !important; margin: 0 0 10px !important; flex-shrink: 0 !important;
+.dv-bar-fill.dv-bar-today { border-radius: 6px 6px 0 0; }
+.dv-bar-tip {
+  position: absolute; top: -20px; left: 50%; transform: translateX(-50%);
+  font-size: 10px; font-weight: 700; color: var(--text); white-space: nowrap;
 }
-body.dark #appContent .focus-task-title {
-  background: linear-gradient(90deg,var(--accent,#00f5a0),var(--accent2,#00d9f5)) !important;
-  -webkit-background-clip: text !important; background-clip: text !important;
-  -webkit-text-fill-color: transparent !important;
+.dv-bar-lbl { font-size: 10px; color: var(--muted); text-align: center; }
+
+/* Task list */
+.dv-task-list { display: flex; flex-direction: column; gap: 6px; }
+.dv-task-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px; border-radius: 10px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.05);
 }
-#appContent .deadline-name { color: var(--text) !important; }
+body:not(.dark) .dv-task-row { background: rgba(0,0,0,0.02); border-color: rgba(0,0,0,0.06); }
+.dv-task-stripe { width: 3px; height: 32px; border-radius: 3px; flex-shrink: 0; }
+.dv-task-info { flex: 1; min-width: 0; }
+.dv-task-name { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dv-task-meta { font-size: 10px; color: var(--muted); margin-top: 1px; text-transform: capitalize; }
+.dv-task-badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; flex-shrink: 0; }
+
+/* Deadlines */
+.dv-deadline-list { display: flex; flex-direction: column; gap: 8px; }
+.dv-dl-row { display: flex; align-items: center; gap: 10px; }
+.dv-dl-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+.dv-dl-dot.dv-dl-red   { background: #ef4444; box-shadow: 0 0 6px #ef444466; }
+.dv-dl-dot.dv-dl-amber { background: #f59e0b; box-shadow: 0 0 6px #f59e0b44; }
+.dv-dl-info { flex: 1; min-width: 0; }
+.dv-dl-name { font-size: 13px; font-weight: 600; color: var(--text); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dv-dl-type { font-size: 10px; color: var(--muted); text-transform: capitalize; }
+.dv-dl-when { font-size: 11px; font-weight: 700; color: var(--muted); flex-shrink: 0; }
+.dv-dl-when.dv-dl-red   { color: #ef4444; }
+.dv-dl-when.dv-dl-amber { color: #f59e0b; }
+
+/* Priority bars */
+.dv-pri-bars { display: flex; flex-direction: column; gap: 9px; }
+.dv-pri-row { display: flex; align-items: center; gap: 8px; }
+.dv-pri-lbl { font-size: 11px; color: var(--muted); width: 42px; flex-shrink: 0; font-weight: 600; }
+.dv-pri-track { flex: 1; height: 7px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; }
+body:not(.dark) .dv-pri-track { background: rgba(0,0,0,0.07); }
+.dv-pri-fill { height: 100%; border-radius: 4px; min-width: 4px; transition: width 0.5s ease; }
+.dv-pri-num { font-size: 11px; font-weight: 700; color: var(--text); width: 20px; text-align: right; }
+
+/* Type pills */
+.dv-types-grid { display: flex; gap: 10px; flex-wrap: wrap; }
+.dv-type-pill {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 14px; border-radius: 12px;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+}
+body:not(.dark) .dv-type-pill { background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.08); }
+.dv-type-icon { font-size: 14px; }
+.dv-type-count { font-size: 15px; font-weight: 800; color: var(--text); }
+.dv-type-name { font-size: 11px; color: var(--muted); text-transform: capitalize; font-weight: 600; }
+
+/* Empty state */
+.dv-empty { font-size: 13px; color: var(--muted); padding: 16px 0; text-align: center; }
 
 /* Responsive */
-@media (max-width: 1100px) {
-  #appContent .stats-section { grid-template-columns: repeat(3,minmax(0,1fr)) !important; }
-  #appContent .bottom-stats { grid-template-columns: 1fr 1fr 1fr !important; }
-  #appContent .bottom-stats .chart-card { grid-column: 1/-1 !important; }
-  #appContent .bottom-stats .chart-card canvas { height: 90px !important; min-height: 90px !important; max-height: 90px !important; }
+@media (max-width: 960px) {
+  .dv-stats { grid-template-columns: repeat(3,1fr); }
+  .dv-grid  { grid-template-columns: 1fr; }
+  .dv-card-wide, .dv-card-types { grid-column: 1; }
 }
-@media (max-width: 720px) {
-  #appContent .stats-section { grid-template-columns: repeat(2,minmax(0,1fr)) !important; }
-  #appContent .charts-section, #appContent .dash-two-col { grid-template-columns: 1fr !important; }
-  #appContent .bottom-stats { grid-template-columns: 1fr 1fr !important; }
+@media (max-width: 600px) {
+  .dv-stats { grid-template-columns: repeat(2,1fr); }
+  .dv-stat-num { font-size: 18px; }
+  .dv-bar-chart { height: 90px; }
 }
-@media (max-width: 420px) { #appContent .stats-section { grid-template-columns: 1fr !important; } }
+@media (max-width: 360px) {
+  .dv-stats { grid-template-columns: 1fr 1fr; }
+}
 
 
 /* ─── 2. ANALYTICS ────────────────────────────────────────────── */
 #appContent .analytics-container { display:flex !important; flex-direction:column !important; gap:14px !important; }
-#appContent .analytics-container .charts-section { display:grid !important; grid-template-columns:1fr 1fr !important; gap:14px !important; overflow:visible !important; }
-#appContent .analytics-container .charts-section .chart-card { height:210px !important; padding:14px 16px !important; }
-#appContent .analytics-container .charts-section .chart-card canvas { max-height:155px !important; }
+#appContent .analytics-container .dash-charts { display:grid !important; grid-template-columns:1fr 1fr !important; gap:14px !important; overflow:visible !important; }
+#appContent .analytics-container .dash-charts .chart-card { height:210px !important; padding:14px 16px !important; }
+#appContent .analytics-container .dash-charts .chart-card canvas { max-height:155px !important; }
 #appContent .analytics-container > .chart-card { height:auto !important; padding:16px 18px !important; }
 #appContent .analytics-container > .chart-card canvas { max-height:165px !important; display:block !important; }
-@media (max-width:680px) { #appContent .analytics-container .charts-section { grid-template-columns:1fr !important; } }
+@media (max-width:680px) { #appContent .analytics-container .dash-charts { grid-template-columns:1fr !important; } }
 
 
 /* ─── 3. FOCUS MODE layout ────────────────────────────────────── */
@@ -2385,7 +2438,7 @@ body:not(.dark) .delete-btn:hover { background: rgba(220,38,38,0.15) !important;
 .auth-verify-icon { font-size: 48px !important; }
 
 /* Analytics chart cards — ensure canvas fills properly */
-.charts-section .chart-card canvas,
+.dash-charts .chart-card canvas,
 .analytics-container > .chart-card canvas {
   display: block !important;
   width: 100% !important;

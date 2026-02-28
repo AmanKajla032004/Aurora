@@ -393,32 +393,47 @@ function renderIdeas(board, q = "") {
 }
 
 /* ─────────────────────────────────────────────
-   CANVAS MIND MAP
+   FLOW DIAGRAM MAP
+   Top-down flow: Board title → idea nodes
+   connected with arrows, draggable nodes
 ───────────────────────────────────────────── */
 function openCanvas(board) {
   cancelAnimationFrame(canvasAF);
   canvasEl = document.getElementById("bsMindCanvas");
   canvasCtx = canvasEl.getContext("2d");
   const wrap = document.getElementById("bsCanvasArea");
-  canvasEl.width  = wrap.clientWidth;
-  canvasEl.height = wrap.clientHeight;
+  canvasEl.width  = wrap.clientWidth  || 800;
+  canvasEl.height = wrap.clientHeight || 500;
 
-  const cx = canvasEl.width / 2, cy = canvasEl.height / 2;
-  const ideas = board.ideas || [];
+  const w = canvasEl.width, h = canvasEl.height;
+  const ideas = (board.ideas || []).map(x => typeof x === "string" ? x : (x.text || "")).filter(Boolean);
   const accent = board.color || "#00f5a0";
 
-  bubbles = ideas.map((idea, i) => {
-    const a = (i / Math.max(ideas.length, 1)) * Math.PI * 2 - Math.PI / 2;
-    const r = Math.min(cx, cy) * 0.52;
+  // Flow layout: root at top, ideas in rows below
+  // Root node
+  const rootNode = { id: -1, text: board.name, x: w/2, y: 60, isRoot: true };
+
+  // Lay ideas in a balanced grid flowing downward
+  const cols = Math.min(ideas.length, Math.max(1, Math.floor(w / 200)));
+  const rowH = 110, colW = w / (cols + 1);
+
+  bubbles = [rootNode, ...ideas.map((text, i) => {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
     return {
-      id: i,
-      text: typeof idea === "string" ? idea : idea.text,
-      x: cx + Math.cos(a) * r,
-      y: cy + Math.sin(a) * r,
-      c: accent
+      id: i, text,
+      x: colW * (col + 1),
+      y: 180 + row * rowH,
+      c: accent, isRoot: false
     };
-  });
-  bubbles.unshift({ id: -1, text: board.name, x: cx, y: cy, c: "#fff", center: true });
+  })];
+
+  // Auto-resize canvas height if needed
+  const maxY = bubbles.reduce((m, b) => Math.max(m, b.y), 0) + 100;
+  if (maxY > canvasEl.height) {
+    canvasEl.height = maxY;
+    canvasEl.style.height = maxY + "px";
+  }
 
   drawCanvas();
   attachCanvasEvents(board);
@@ -427,104 +442,167 @@ function openCanvas(board) {
 function drawCanvas() {
   if (!canvasCtx || !canvasEl) return;
   const w = canvasEl.width, h = canvasEl.height;
-  canvasCtx.clearRect(0,0,w,h);
+  canvasCtx.clearRect(0, 0, w, h);
 
-  // Background
-  canvasCtx.fillStyle = "#080c18";
-  canvasCtx.fillRect(0,0,w,h);
+  const dark = document.body.classList.contains("dark");
+  const bg = dark ? "#080c18" : "#f8fafc";
+  canvasCtx.fillStyle = bg;
+  canvasCtx.fillRect(0, 0, w, h);
 
-  // Grid dots
-  canvasCtx.fillStyle = "rgba(255,255,255,0.028)";
-  for (let x = 0; x < w; x += 30)
-    for (let y = 0; y < h; y += 30) {
+  // Subtle grid
+  canvasCtx.strokeStyle = dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.04)";
+  canvasCtx.lineWidth = 1;
+  for (let x = 0; x < w; x += 40) {
+    canvasCtx.beginPath(); canvasCtx.moveTo(x,0); canvasCtx.lineTo(x,h); canvasCtx.stroke();
+  }
+  for (let y = 0; y < h; y += 40) {
+    canvasCtx.beginPath(); canvasCtx.moveTo(0,y); canvasCtx.lineTo(w,y); canvasCtx.stroke();
+  }
+
+  const root = bubbles.find(b => b.isRoot);
+
+  // Draw arrows from root to each idea node
+  if (root) {
+    bubbles.filter(b => !b.isRoot).forEach(b => {
+      const sx = root.x, sy = root.y + 30;  // bottom of root
+      const ex = b.x,   ey = b.y - 28;       // top of idea node
+
+      // Bezier curve
+      const cp1x = sx, cp1y = sy + (ey - sy) * 0.4;
+      const cp2x = ex, cp2y = ey - (ey - sy) * 0.4;
+
       canvasCtx.beginPath();
-      canvasCtx.arc(x, y, 1, 0, Math.PI*2);
-      canvasCtx.fill();
-    }
-
-  const ctr = bubbles.find(b => b.center);
-
-  // Lines
-  if (ctr) {
-    bubbles.filter(b => !b.center).forEach(b => {
-      const g = canvasCtx.createLinearGradient(ctr.x, ctr.y, b.x, b.y);
-      g.addColorStop(0, "rgba(0,245,160,0.18)");
-      g.addColorStop(1, "rgba(0,217,245,0.05)");
-      canvasCtx.beginPath();
-      canvasCtx.moveTo(ctr.x, ctr.y);
-      canvasCtx.lineTo(b.x, b.y);
-      canvasCtx.strokeStyle = g;
+      canvasCtx.moveTo(sx, sy);
+      canvasCtx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, ex, ey);
+      canvasCtx.strokeStyle = dark ? "rgba(0,245,160,0.25)" : "rgba(0,180,100,0.3)";
       canvasCtx.lineWidth = 1.5;
+      canvasCtx.setLineDash([]);
       canvasCtx.stroke();
+
+      // Arrowhead
+      const angle = Math.atan2(ey - cp2y, ex - cp2x);
+      const aLen = 8;
+      canvasCtx.fillStyle = dark ? "rgba(0,245,160,0.5)" : "rgba(0,160,90,0.6)";
+      canvasCtx.beginPath();
+      canvasCtx.moveTo(ex, ey);
+      canvasCtx.lineTo(ex - aLen * Math.cos(angle - 0.4), ey - aLen * Math.sin(angle - 0.4));
+      canvasCtx.lineTo(ex - aLen * Math.cos(angle + 0.4), ey - aLen * Math.sin(angle + 0.4));
+      canvasCtx.closePath();
+      canvasCtx.fill();
     });
   }
 
-  // Bubbles
+  // Draw nodes
   bubbles.forEach(b => {
-    const r = b.center ? 52 : 40;
-    // Glow
-    const gl = canvasCtx.createRadialGradient(b.x, b.y, 0, b.x, b.y, r + 22);
-    gl.addColorStop(0, b.center ? "rgba(255,255,255,0.08)" : "rgba(0,245,160,0.1)");
-    gl.addColorStop(1, "transparent");
-    canvasCtx.fillStyle = gl;
-    canvasCtx.beginPath(); canvasCtx.arc(b.x, b.y, r+22, 0, Math.PI*2); canvasCtx.fill();
-    // Fill
-    const bg = canvasCtx.createRadialGradient(b.x - r*.3, b.y - r*.3, 0, b.x, b.y, r);
-    bg.addColorStop(0, b.center ? "rgba(255,255,255,0.18)" : "rgba(0,245,160,0.13)");
-    bg.addColorStop(1, b.center ? "rgba(255,255,255,0.04)" : "rgba(0,245,160,0.04)");
-    canvasCtx.fillStyle = bg;
-    canvasCtx.beginPath(); canvasCtx.arc(b.x, b.y, r, 0, Math.PI*2); canvasCtx.fill();
-    // Stroke
-    canvasCtx.strokeStyle = b.center ? "rgba(255,255,255,0.35)" : "rgba(0,245,160,0.3)";
-    canvasCtx.lineWidth = b.center ? 1.5 : 1;
+    const isRoot = b.isRoot;
+    const nw = isRoot ? 160 : 150, nh = isRoot ? 44 : 52;
+    const nx = b.x - nw/2, ny = b.y - nh/2;
+    const r = 12;
+
+    // Shadow
+    canvasCtx.shadowColor = dark ? "rgba(0,0,0,0.5)" : "rgba(0,0,0,0.15)";
+    canvasCtx.shadowBlur = isRoot ? 16 : 10;
+    canvasCtx.shadowOffsetY = 3;
+
+    // Node fill
+    if (isRoot) {
+      const grad = canvasCtx.createLinearGradient(nx, ny, nx, ny+nh);
+      grad.addColorStop(0, dark ? "#00c87a" : "#00b870");
+      grad.addColorStop(1, dark ? "#00a865" : "#009055");
+      canvasCtx.fillStyle = grad;
+    } else {
+      canvasCtx.fillStyle = dark ? "#1c2740" : "#ffffff";
+    }
+
+    // Rounded rect
+    canvasCtx.beginPath();
+    canvasCtx.moveTo(nx+r, ny);
+    canvasCtx.lineTo(nx+nw-r, ny); canvasCtx.quadraticCurveTo(nx+nw, ny, nx+nw, ny+r);
+    canvasCtx.lineTo(nx+nw, ny+nh-r); canvasCtx.quadraticCurveTo(nx+nw, ny+nh, nx+nw-r, ny+nh);
+    canvasCtx.lineTo(nx+r, ny+nh); canvasCtx.quadraticCurveTo(nx, ny+nh, nx, ny+nh-r);
+    canvasCtx.lineTo(nx, ny+r); canvasCtx.quadraticCurveTo(nx, ny, nx+r, ny);
+    canvasCtx.closePath();
+    canvasCtx.fill();
+    canvasCtx.shadowBlur = 0; canvasCtx.shadowOffsetY = 0;
+
+    // Border
+    canvasCtx.strokeStyle = isRoot ? "transparent" : (dark ? "rgba(0,245,160,0.2)" : "rgba(0,150,80,0.2)");
+    canvasCtx.lineWidth = 1;
     canvasCtx.stroke();
+
+    // Number badge for idea nodes
+    if (!isRoot) {
+      canvasCtx.fillStyle = dark ? "rgba(0,245,160,0.15)" : "rgba(0,180,100,0.12)";
+      canvasCtx.beginPath();
+      canvasCtx.arc(nx + 16, ny + 16, 10, 0, Math.PI*2);
+      canvasCtx.fill();
+      canvasCtx.fillStyle = dark ? "#00f5a0" : "#00a060";
+      canvasCtx.font = "bold 10px -apple-system,sans-serif";
+      canvasCtx.textAlign = "center";
+      canvasCtx.textBaseline = "middle";
+      canvasCtx.fillText(String(b.id + 1), nx + 16, ny + 16);
+    }
+
     // Text
-    canvasCtx.fillStyle = b.center ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.78)";
-    canvasCtx.font = `${b.center ? "600 " : ""}${b.center ? 13 : 11}px -apple-system,sans-serif`;
+    canvasCtx.fillStyle = isRoot ? "#fff" : (dark ? "rgba(226,232,240,0.9)" : "#1e293b");
+    canvasCtx.font = isRoot ? "bold 13px -apple-system,sans-serif" : "12px -apple-system,sans-serif";
     canvasCtx.textAlign = "center";
     canvasCtx.textBaseline = "middle";
-    wrapText(canvasCtx, b.text, b.x, b.y, (r - 6) * 2, 14);
+    const textX = isRoot ? b.x : b.x + 8;
+    const textMaxW = isRoot ? nw - 16 : nw - 36;
+    wrapText(canvasCtx, b.text, textX, b.y, textMaxW, 15);
   });
 }
 
 function wrapText(ctx, text, x, y, maxW, lh) {
-  const words = text.split(" "); let line = ""; const lines = [];
+  const words = (text || "").split(" "); let line = ""; const lines = [];
   words.forEach(w => {
     const t = line ? line + " " + w : w;
     if (ctx.measureText(t).width > maxW && line) { lines.push(line); line = w; }
     else line = t;
   });
   if (line) lines.push(line);
-  const sy = y - ((lines.length - 1) * lh) / 2;
-  lines.forEach((l, i) => ctx.fillText(l, x, sy + i * lh));
+  const maxLines = 3;
+  const trimmed = lines.slice(0, maxLines);
+  if (lines.length > maxLines) trimmed[maxLines-1] += "…";
+  const sy = y - ((trimmed.length - 1) * lh) / 2;
+  trimmed.forEach((l, i) => ctx.fillText(l, x, sy + i * lh));
 }
 
 function hitBubble(mx, my) {
-  return bubbles.slice().reverse().find(b => Math.hypot(mx - b.x, my - b.y) < (b.center ? 52 : 40));
+  return bubbles.slice().reverse().find(b => {
+    const nw = b.isRoot ? 160 : 150, nh = b.isRoot ? 44 : 52;
+    return mx >= b.x-nw/2 && mx <= b.x+nw/2 && my >= b.y-nh/2 && my <= b.y+nh/2;
+  });
 }
 
 function attachCanvasEvents(board) {
   if (!canvasEl) return;
+  canvasEl.style.cursor = "default";
+
   canvasEl.onmousedown = e => {
     const r = canvasEl.getBoundingClientRect();
     const b = hitBubble(e.clientX - r.left, e.clientY - r.top);
-    if (b && !b.center) { dragging = b; dragOX = e.clientX - r.left - b.x; dragOY = e.clientY - r.top - b.y; }
+    if (b && !b.isRoot) { dragging = b; dragOX = e.clientX - r.left - b.x; dragOY = e.clientY - r.top - b.y; canvasEl.style.cursor = "grabbing"; }
   };
   canvasEl.onmousemove = e => {
-    if (!dragging) return;
+    if (!dragging) {
+      const r = canvasEl.getBoundingClientRect();
+      canvasEl.style.cursor = hitBubble(e.clientX-r.left, e.clientY-r.top) ? "grab" : "default";
+      return;
+    }
     const r = canvasEl.getBoundingClientRect();
     dragging.x = e.clientX - r.left - dragOX;
     dragging.y = e.clientY - r.top - dragOY;
     drawCanvas();
   };
-  canvasEl.onmouseup = () => { dragging = null; };
+  canvasEl.onmouseup = () => { dragging = null; canvasEl.style.cursor = "default"; };
   canvasEl.onmouseleave = () => { dragging = null; };
 
-  // Touch
   canvasEl.ontouchstart = e => {
     const r = canvasEl.getBoundingClientRect(), t = e.touches[0];
     const b = hitBubble(t.clientX - r.left, t.clientY - r.top);
-    if (b && !b.center) { dragging = b; dragOX = t.clientX - r.left - b.x; dragOY = t.clientY - r.top - b.y; }
+    if (b && !b.isRoot) { dragging = b; dragOX = t.clientX - r.left - b.x; dragOY = t.clientY - r.top - b.y; }
   };
   canvasEl.ontouchmove = e => {
     e.preventDefault();
@@ -536,16 +614,15 @@ function attachCanvasEvents(board) {
   };
   canvasEl.ontouchend = () => { dragging = null; };
 
-  // Double-click to edit
   canvasEl.ondblclick = async e => {
     const r = canvasEl.getBoundingClientRect();
     const b = hitBubble(e.clientX - r.left, e.clientY - r.top);
-    if (b && !b.center) {
+    if (b && !b.isRoot) {
       const t = prompt("Edit idea:", b.text);
       if (t?.trim()) {
-        const board = boards.find(x => x.id === activeBoardId); if (!board) return;
-        const ideas = [...(board.ideas||[])];
-        const obj = typeof ideas[b.id] === "string" ? { text: ideas[b.id], pinned:false, tag:"" } : { ...ideas[b.id] };
+        const brd = boards.find(x => x.id === activeBoardId); if (!brd) return;
+        const ideas = [...(brd.ideas||[])];
+        const obj = typeof ideas[b.id] === "string" ? { text: ideas[b.id] } : { ...ideas[b.id] };
         obj.text = t.trim(); ideas[b.id] = obj;
         await saveBoard(activeBoardId, { ideas });
         openCanvas(boards.find(x => x.id === activeBoardId));
@@ -553,14 +630,14 @@ function attachCanvasEvents(board) {
     }
   };
 
-  // Right-click to delete
   canvasEl.oncontextmenu = async e => {
     e.preventDefault();
     const r = canvasEl.getBoundingClientRect();
     const b = hitBubble(e.clientX - r.left, e.clientY - r.top);
-    if (b && !b.center) {
-      const board = boards.find(x => x.id === activeBoardId); if (!board) return;
-      const ideas = [...(board.ideas||[])]; ideas.splice(b.id, 1);
+    if (b && !b.isRoot) {
+      if (!confirm(`Delete "${b.text}"?`)) return;
+      const brd = boards.find(x => x.id === activeBoardId); if (!brd) return;
+      const ideas = [...(brd.ideas||[])]; ideas.splice(b.id, 1);
       await saveBoard(activeBoardId, { ideas });
       openCanvas(boards.find(x => x.id === activeBoardId));
     }

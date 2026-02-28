@@ -1,300 +1,317 @@
 import { getTasksFromCloud } from "../firebase/firestoreService.js";
+import { auth } from "../firebase/firebaseConfig.js";
 
 export async function renderDashboard() {
-  return `<div class="dashboard-container" id="dashboardShell">
-    <div class="dash-loading">Loading dashboard…</div>
+  return `<div class="dv-root" id="dashboardShell">
+    <div class="dv-loading">
+      <div class="dv-spinner"></div>
+      <span>Loading overview…</span>
+    </div>
   </div>`;
 }
 
 export async function initDashboard() {
-  const tasks = await getTasksFromCloud();
-  const now   = new Date();
   const shell = document.getElementById("dashboardShell");
   if (!shell) return;
 
+  const tasks  = await getTasksFromCloud();
+  const now    = new Date();
   const dark   = document.body.classList.contains("dark");
   const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#00c87a";
-  const accent2 = getComputedStyle(document.documentElement).getPropertyValue("--accent2").trim() || "#00d9f5";
+  const accent2= getComputedStyle(document.documentElement).getPropertyValue("--accent2").trim() || "#00d9f5";
+  const userName = auth.currentUser?.email?.split("@")[0] || "there";
 
-  // ── Stats ──
-  const todayStr  = now.toDateString();
-
-  // Parse dueDate in LOCAL time to avoid UTC-offset bugs (e.g. IST = UTC+5:30)
-  const parseDueDate = (dueDate, dueTime) => {
-    if (!dueDate) return null;
-    const dp = dueDate.length > 10 ? dueDate.slice(0, 10) : dueDate;
-    const [y, mo, d] = dp.split("-").map(Number);
-    if (dueTime) { const [h, m] = dueTime.split(":").map(Number); return new Date(y, mo-1, d, h, m, 0, 0); }
-    return new Date(y, mo-1, d, 23, 59, 59, 999); // end of day local
-  };
-
-  const completedAt = t => t.completedAt
+  // ── Helpers ──────────────────────────────────────────────
+  const caDate = t => t.completedAt
     ? new Date(t.completedAt.seconds ? t.completedAt.seconds*1000 : t.completedAt)
     : null;
 
-  const doneToday = tasks.filter(t => {
-    const ca = completedAt(t);
-    return t.completed && ca && ca.toDateString() === todayStr;
-  }).length;
-  const totalDone = tasks.filter(t => t.completed).length;
-  const pending   = tasks.filter(t => !t.completed).length;
-
-  // Overdue: only tasks with explicit custom deadlines that have passed
-  // (mirrors tasksView isMissed logic — weekly/monthly without customDeadline don't count)
-  const overdue = tasks.filter(t => {
-    if (t.completed || !t.dueDate) return false;
-    if (t.type === "daily") return false;
-    if (!t.customDeadline && (t.type === "weekly" || t.type === "monthly" || t.type === "yearly")) return false;
-    const dl = parseDueDate(t.dueDate, t.dueTime);
-    return dl && dl < now;
-  }).length;
-
-  // This calendar week (Mon–Sun)
-  const weekStart = new Date(now);
-  weekStart.setDate(now.getDate() - ((now.getDay() + 6) % 7)); // Monday
-  weekStart.setHours(0, 0, 0, 0);
-  const weekDone = tasks.filter(t => {
-    const ca = completedAt(t);
-    return t.completed && ca && ca >= weekStart;
-  }).length;
-
-  // ── Streak ──
-  // Streak = any day where at least one task was completed (any type)
-  const calcStreak = (taskList) => {
-    const now2 = new Date();
-    const doneDays = new Set(taskList.filter(t => t.completed && t.completedAt)
-      .map(t => new Date(t.completedAt.seconds ? t.completedAt.seconds*1000 : t.completedAt).toDateString()));
-    let s = 0;
-    for (let i = 0; i <= 365; i++) {
-      const d = new Date(now2); d.setDate(now2.getDate()-i);
-      if (doneDays.has(d.toDateString())) s++;
-      else if (i > 0) break;
-    }
-    return s;
+  const parseLocal = (dueDate, dueTime) => {
+    if (!dueDate) return null;
+    const dp = (dueDate.length > 10 ? dueDate.slice(0,10) : dueDate);
+    const [y,mo,d] = dp.split("-").map(Number);
+    if (dueTime) { const [h,m] = dueTime.split(":").map(Number); return new Date(y,mo-1,d,h,m,0,0); }
+    return new Date(y,mo-1,d,23,59,59,999);
   };
-  const doneDays = new Set(tasks.filter(t => t.completed && t.completedAt)
-    .map(t => new Date(t.completedAt.seconds ? t.completedAt.seconds*1000 : t.completedAt).toDateString()));
-  let streak = calcStreak(tasks);
 
-  // Live-update streak when a task is completed from tasks page
-  window.addEventListener("taskCompleted", (e) => {
-    const newStreak = calcStreak(e.detail.tasks);
-    const el = document.querySelector(".stat-value[data-streak]") || document.querySelector(".stat-card:nth-child(4) .stat-value");
-    if (el) el.textContent = newStreak + "d";
-  }, { once: false });
+  const todayStr = now.toDateString();
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - ((now.getDay()+6)%7));
+  weekStart.setHours(0,0,0,0);
 
-  // ── Last 7 days ──
-  const last7 = [], last7L = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(now); d.setDate(now.getDate()-i);
-    last7L.push(i===0 ? "Today" : d.toLocaleDateString("en-US", {weekday:"short"}));
-    last7.push(tasks.filter(t => t.completed && t.completedAt &&
-      new Date(t.completedAt.seconds ? t.completedAt.seconds*1000 : t.completedAt).toDateString() === d.toDateString()
-    ).length);
+  // ── Stats ────────────────────────────────────────────────
+  const doneToday = tasks.filter(t => { const c=caDate(t); return t.completed && c && c.toDateString()===todayStr; }).length;
+  const weekDone  = tasks.filter(t => { const c=caDate(t); return t.completed && c && c>=weekStart; }).length;
+  const pending   = tasks.filter(t => !t.completed).length;
+  const totalDone = tasks.filter(t => t.completed).length;
+  const overdue   = tasks.filter(t => {
+    if (t.completed||!t.dueDate) return false;
+    if (t.type==="daily") return false;
+    if (!t.customDeadline && (t.type==="weekly"||t.type==="monthly"||t.type==="yearly")) return false;
+    const dl=parseLocal(t.dueDate,t.dueTime); return dl&&dl<now;
+  }).length;
+
+  // ── Streak ───────────────────────────────────────────────
+  const doneDaySet = new Set(tasks.filter(t=>t.completed&&t.completedAt).map(t=>caDate(t).toDateString()));
+  let streak = 0;
+  for (let i=0;i<=365;i++) {
+    const d=new Date(now); d.setDate(now.getDate()-i);
+    if (doneDaySet.has(d.toDateString())) streak++;
+    else if (i>0) break;
   }
 
-  // ── Priority doughnut ──
-  const pLabels = ["Low","Med","High","V.High","Crit"];
-  const pColors = ["#6b7280","#f59e0b","#f97316","#ef4444","#dc2626"];
-  const pCounts = [1,2,3,4,5].map(p => tasks.filter(t => !t.completed && t.priority===p).length);
+  // ── Today's progress ─────────────────────────────────────
+  const todayDateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+  const todayTasks = [...new Map(tasks.filter(t => {
+    if (t.type==="daily") return true;
+    if (t.completed && caDate(t)?.toDateString()===todayStr) return true;
+    if (t.dueDate && t.dueDate.slice(0,10)<=todayDateStr) return true;
+    return false;
+  }).map(t=>[t.id,t])).values()];
+  const todayDone = todayTasks.filter(t=>t.completed).length;
+  const todayPct  = todayTasks.length ? Math.round((todayDone/todayTasks.length)*100) : 0;
 
-  // ── Type chart ──
-  const typeCounts = ["daily","weekly","monthly","yearly","custom"].map(tp =>
-    tasks.filter(t => t.type===tp).length);
-
-  // ── Top tasks ──
-  const pC = {1:"#6b7280",2:"#f59e0b",3:"#f97316",4:"#ef4444",5:"#dc2626"};
-  const pN = {1:"Low",2:"Medium",3:"High",4:"Very High",5:"Critical"};
-  const topTasks = tasks.filter(t => !t.completed)
-    .sort((a,b) => (b.priority||0)-(a.priority||0)).slice(0,5);
-
-  // ── Deadlines ──
-  const deadlines = tasks.filter(t => !t.completed && t.dueDate)
-    .sort((a,b) => new Date(a.dueDate)-new Date(b.dueDate)).slice(0,5);
-
-  function daysUntil(dueDate, dueTime) {
-    const dl = parseDueDate(dueDate, dueTime);
-    if (!dl) return { label: "No date", cls: "" };
-    const diffDays = Math.ceil((dl - now) / 86400000);
-    if (dl < now && diffDays < 0) return { label: `${Math.abs(diffDays)}d overdue`, cls: "deadline-overdue" };
-    if (dl.toDateString() === now.toDateString()) return { label: "Today", cls: "deadline-today" };
-    if (diffDays === 1) return { label: "Tomorrow", cls: "" };
-    return { label: `${diffDays} days`, cls: "" };
+  // ── Last 7 days ──────────────────────────────────────────
+  const last7=[], last7L=[];
+  for (let i=6;i>=0;i--) {
+    const d=new Date(now); d.setDate(now.getDate()-i);
+    last7L.push(i===0?"Today":d.toLocaleDateString("en-US",{weekday:"short"}));
+    last7.push(tasks.filter(t=>t.completed&&t.completedAt&&caDate(t).toDateString()===d.toDateString()).length);
   }
+  const maxBar = Math.max(...last7, 1);
 
-  // ── Weekly ring ──
-  const wt   = tasks.filter(t => t.type==="weekly");
-  const wPct = wt.length ? Math.round((wt.filter(t=>t.completed).length / wt.length)*100) : 0;
-  const circ = (2*Math.PI*32).toFixed(1);
+  // ── Priority distribution ────────────────────────────────
+  const pColors={1:"#6b7280",2:"#f59e0b",3:"#f97316",4:"#ef4444",5:"#dc2626"};
+  const pLabels={1:"Low",2:"Med",3:"High",4:"V.High",5:"Crit"};
+  const pCounts=[1,2,3,4,5].map(p=>tasks.filter(t=>!t.completed&&t.priority===p).length);
+  const pTotal = pCounts.reduce((a,b)=>a+b,0)||1;
 
-  // ── Build HTML ──
+  // ── Top tasks (with deadline-escalated display priority) ─
+  const displayPri = t => {
+    let dp = t.priority||3;
+    if (!t.completed && t.dueDate) {
+      const dl=parseLocal(t.dueDate,t.dueTime);
+      if (dl) {
+        const days=(dl-now)/86400000;
+        if (days<=1&&dp<5) dp=5;
+        else if (days<=3&&dp<4) dp=4;
+        else if (days<=7&&dp<3) dp=3;
+      }
+    }
+    return dp;
+  };
+  const topTasks = tasks.filter(t=>!t.completed)
+    .sort((a,b)=>displayPri(b)-displayPri(a)).slice(0,6);
+
+  // ── Upcoming deadlines ───────────────────────────────────
+  const upcoming = tasks.filter(t=>!t.completed&&t.dueDate)
+    .map(t=>({...t, _dl:parseLocal(t.dueDate,t.dueTime)}))
+    .filter(t=>t._dl)
+    .sort((a,b)=>a._dl-b._dl).slice(0,5);
+
+  const daysLabel = dl => {
+    const diff=Math.round((dl-now)/86400000);
+    if (dl<now) return {txt:`${Math.abs(diff)}d overdue`,urgent:2};
+    if (dl.toDateString()===todayStr) return {txt:"Today",urgent:2};
+    if (diff===1) return {txt:"Tomorrow",urgent:1};
+    if (diff<=3)  return {txt:`${diff} days`,urgent:1};
+    return {txt:`${diff} days`,urgent:0};
+  };
+
+  // ── Task type breakdown ───────────────────────────────────
+  const types=["daily","weekly","monthly","yearly","once","custom"];
+  const typeIcons={"daily":"🔄","weekly":"📅","monthly":"🗓","yearly":"🎯","once":"✅","custom":"⚙️"};
+  const typeCounts=types.map(tp=>tasks.filter(t=>t.type===tp).length);
+
+  // ── Build HTML ───────────────────────────────────────────
+  const circ = (2*Math.PI*28).toFixed(1);
+  const offset = (2*Math.PI*28*(1-todayPct/100)).toFixed(1);
+
   shell.innerHTML = `
-  <!-- ══ 5 STAT CARDS ══ -->
-  <section class="dash-stats">
-    <div class="stat-card">
-      <h4>Done Today</h4>
-      <div class="stat-value">${doneToday}</div>
+<div class="dv-header">
+  <div class="dv-header-left">
+    <h1 class="dv-title">Overview</h1>
+    <p class="dv-subtitle">${new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</p>
+  </div>
+  <div class="dv-progress-ring" title="${todayPct}% of today's tasks done">
+    <svg viewBox="0 0 64 64" class="dv-ring-svg">
+      <circle cx="32" cy="32" r="28" class="dv-ring-bg"/>
+      <circle cx="32" cy="32" r="28" class="dv-ring-fg"
+        stroke-dasharray="${circ}" stroke-dashoffset="${offset}"
+        style="stroke:${accent}"/>
+    </svg>
+    <div class="dv-ring-inner">
+      <span class="dv-ring-pct">${todayPct}%</span>
+      <span class="dv-ring-lbl">today</span>
     </div>
-    <div class="stat-card">
-      <h4>This Week</h4>
-      <div class="stat-value">${weekDone}</div>
-    </div>
-    <div class="stat-card${pending>0?" stat-active":""}">
-      <h4>Pending</h4>
-      <div class="stat-value" style="color:${dark?"#94a3b8":"#374151"}">${pending}</div>
-    </div>
-    <div class="stat-card${overdue>0?" stat-warn":""}">
-      <h4>Overdue</h4>
-      <div class="stat-value" style="${overdue>0?"color:#ef4444":""}">${overdue}</div>
-    </div>
-    <div class="stat-card">
-      <h4>🔥 Streak</h4>
-      <div class="stat-value" style="color:#f97316">${streak}d</div>
-    </div>
-  </section>
+  </div>
+</div>
 
-  <!-- ══ 2 CHART CARDS ══ -->
-  <section class="dash-charts">
-    <div class="chart-card">
-      <h3 class="card-title">Completions — Last 7 Days</h3>
-      <canvas id="dashCompChart"></canvas>
+<!-- ══ STAT PILLS ══ -->
+<div class="dv-stats">
+  <div class="dv-stat">
+    <div class="dv-stat-icon" style="background:${accent}22;color:${accent}">✓</div>
+    <div class="dv-stat-body">
+      <div class="dv-stat-num">${doneToday}</div>
+      <div class="dv-stat-lbl">Done Today</div>
     </div>
-    <div class="chart-card">
-      <h3 class="card-title">Priority Distribution</h3>
-      <canvas id="dashPriChart"></canvas>
+  </div>
+  <div class="dv-stat">
+    <div class="dv-stat-icon" style="background:#818cf822;color:#818cf8">📆</div>
+    <div class="dv-stat-body">
+      <div class="dv-stat-num">${weekDone}</div>
+      <div class="dv-stat-lbl">This Week</div>
     </div>
-  </section>
+  </div>
+  <div class="dv-stat ${pending>0?"dv-stat-warn":""}">
+    <div class="dv-stat-icon" style="background:#f59e0b22;color:#f59e0b">⏳</div>
+    <div class="dv-stat-body">
+      <div class="dv-stat-num">${pending}</div>
+      <div class="dv-stat-lbl">Pending</div>
+    </div>
+  </div>
+  <div class="dv-stat ${overdue>0?"dv-stat-alert":""}">
+    <div class="dv-stat-icon" style="background:#ef444422;color:#ef4444">⚠</div>
+    <div class="dv-stat-body">
+      <div class="dv-stat-num" style="${overdue>0?"color:#ef4444":""}">${overdue}</div>
+      <div class="dv-stat-lbl">Overdue</div>
+    </div>
+  </div>
+  <div class="dv-stat">
+    <div class="dv-stat-icon" style="background:#f9731622;color:#f97316">🔥</div>
+    <div class="dv-stat-body">
+      <div class="dv-stat-num" style="color:#f97316">${streak}</div>
+      <div class="dv-stat-lbl">Day Streak</div>
+    </div>
+  </div>
+  <div class="dv-stat">
+    <div class="dv-stat-icon" style="background:${accent}22;color:${accent}">★</div>
+    <div class="dv-stat-body">
+      <div class="dv-stat-num">${totalDone}</div>
+      <div class="dv-stat-lbl">All Time</div>
+    </div>
+  </div>
+</div>
 
-  <!-- ══ TOP TASKS + DEADLINES ══ -->
-  <section class="dash-two-col">
-    <div class="chart-card">
-      <h3 class="card-title">🎯 Top Priority Tasks</h3>
-      ${topTasks.length
-        ? topTasks.map(t => `
-          <div class="dash-task-item">
-            <div class="dash-task-dot" style="background:${pC[t.priority]||"#6b7280"}"></div>
-            <div class="dash-task-info">
-              <div class="dash-task-title">${t.title}</div>
-              <div class="dash-task-meta">${t.type} · ${pN[t.priority]||""}</div>
+<!-- ══ MAIN GRID ══ -->
+<div class="dv-grid">
+
+  <!-- Activity chart -->
+  <div class="dv-card dv-card-wide">
+    <div class="dv-card-head">
+      <span class="dv-card-title">Activity — Last 7 Days</span>
+      <span class="dv-card-sub">${last7.reduce((a,b)=>a+b,0)} completions</span>
+    </div>
+    <div class="dv-bar-chart">
+      ${last7.map((v,i)=>`
+        <div class="dv-bar-col">
+          <div class="dv-bar-wrap">
+            <div class="dv-bar-fill ${i===6?"dv-bar-today":""}"
+              style="height:${Math.round((v/maxBar)*100)}%;background:${i===6?accent:accent+"55"}">
+              ${v>0?`<span class="dv-bar-tip">${v}</span>`:""}
             </div>
-          </div>`).join("")
-        : `<p class="dash-empty">All clear ✨</p>`}
+          </div>
+          <span class="dv-bar-lbl">${last7L[i]}</span>
+        </div>`).join("")}
     </div>
-    <div class="chart-card">
-      <h3 class="card-title">📅 Upcoming Deadlines</h3>
-      ${deadlines.length
-        ? `<ul class="deadline-list">${deadlines.map(t => {
-            const {label,cls} = daysUntil(t.dueDate, t.dueTime);
-            return `<li class="deadline-item">
-              <span class="deadline-name">${t.title}</span>
-              <span class="deadline-when ${cls}">${label}</span>
-            </li>`;
-          }).join("")}</ul>`
-        : `<p class="dash-empty">No upcoming deadlines ✨</p>`}
-    </div>
-  </section>
+  </div>
 
-  <!-- ══ BOTTOM ROW: ring + totals + type mini chart ══ -->
-  <section class="dash-bottom">
-    <div class="stat-card">
-      <h4>Weekly</h4>
-      <div class="dash-ring-wrap">
-        <svg class="dash-ring-svg" viewBox="0 0 80 80">
-          <circle class="dash-ring-bg"   cx="40" cy="40" r="32"/>
-          <circle class="dash-ring-fill" cx="40" cy="40" r="32"
-            stroke-dasharray="${circ}"
-            stroke-dashoffset="${(2*Math.PI*32*(1-wPct/100)).toFixed(1)}"/>
-        </svg>
-        <div class="dash-ring-label">${wPct}%</div>
-      </div>
+  <!-- Top priority tasks -->
+  <div class="dv-card">
+    <div class="dv-card-head">
+      <span class="dv-card-title">🎯 Priority Tasks</span>
+      <span class="dv-card-sub">${pending} pending</span>
     </div>
-    <div class="stat-card">
-      <h4>Total Done</h4>
-      <div class="stat-value">${totalDone}</div>
+    <div class="dv-task-list">
+      ${topTasks.length ? topTasks.map(t => {
+        const dp=displayPri(t); const col=pColors[dp]||"#6b7280";
+        return `<div class="dv-task-row">
+          <div class="dv-task-stripe" style="background:${col}"></div>
+          <div class="dv-task-info">
+            <div class="dv-task-name">${t.title}</div>
+            <div class="dv-task-meta">${t.type}${t.dueDate?` · ${t.dueDate.slice(5)}`:""}</div>
+          </div>
+          <span class="dv-task-badge" style="background:${col}22;color:${col}">${pLabels[dp]||""}</span>
+        </div>`;
+      }).join("") : `<div class="dv-empty">All tasks complete ✨</div>`}
     </div>
-    <div class="stat-card">
-      <h4>All Tasks</h4>
-      <div class="stat-value">${tasks.length}</div>
-    </div>
-    <div class="chart-card">
-      <h3 class="card-title">Task Types</h3>
-      <canvas id="dashTypeChart"></canvas>
-    </div>
-  </section>`;
+  </div>
 
-  // ── Chart.js defaults for dark/light ──
+  <!-- Upcoming deadlines -->
+  <div class="dv-card">
+    <div class="dv-card-head">
+      <span class="dv-card-title">📅 Deadlines</span>
+    </div>
+    <div class="dv-deadline-list">
+      ${upcoming.length ? upcoming.map(t => {
+        const {txt,urgent}=daysLabel(t._dl);
+        const urgCls=urgent===2?"dv-dl-red":urgent===1?"dv-dl-amber":"";
+        return `<div class="dv-dl-row">
+          <div class="dv-dl-dot ${urgCls}"></div>
+          <div class="dv-dl-info">
+            <span class="dv-dl-name">${t.title}</span>
+            <span class="dv-dl-type">${t.type}</span>
+          </div>
+          <span class="dv-dl-when ${urgCls}">${txt}</span>
+        </div>`;
+      }).join("") : `<div class="dv-empty">No upcoming deadlines ✨</div>`}
+    </div>
+  </div>
+
+  <!-- Priority distribution -->
+  <div class="dv-card">
+    <div class="dv-card-head">
+      <span class="dv-card-title">Priority Split</span>
+      <span class="dv-card-sub">${pending} active</span>
+    </div>
+    <div class="dv-pri-bars">
+      ${[1,2,3,4,5].map(p=>{
+        const pct=Math.round((pCounts[p-1]/pTotal)*100);
+        return `<div class="dv-pri-row">
+          <span class="dv-pri-lbl">${pLabels[p]}</span>
+          <div class="dv-pri-track">
+            <div class="dv-pri-fill" style="width:${pct}%;background:${pColors[p]}"></div>
+          </div>
+          <span class="dv-pri-num">${pCounts[p-1]}</span>
+        </div>`;
+      }).join("")}
+    </div>
+    <canvas id="dashPriChart" style="display:none"></canvas>
+  </div>
+
+  <!-- Task types -->
+  <div class="dv-card dv-card-types">
+    <div class="dv-card-head">
+      <span class="dv-card-title">Task Types</span>
+    </div>
+    <div class="dv-types-grid">
+      ${types.map((tp,i)=>`
+        <div class="dv-type-pill">
+          <span class="dv-type-icon">${typeIcons[tp]}</span>
+          <span class="dv-type-count">${typeCounts[i]}</span>
+          <span class="dv-type-name">${tp}</span>
+        </div>`).join("")}
+    </div>
+  </div>
+
+</div>`;
+
+  // Still render Chart.js for the doughnut (hidden canvas, used if needed)
   const textColor = dark ? "#94a3b8" : "#374151";
-  const gridColor = dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
-  const axisColor = dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
-
   function destroyOld(id) {
     const el = document.getElementById(id);
-    if (el && Chart.getChart(el)) Chart.getChart(el).destroy();
+    if (el && window.Chart && Chart.getChart(el)) Chart.getChart(el).destroy();
     return el;
   }
-
-  // Completions bar
-  const compEl = destroyOld("dashCompChart");
-  if (compEl) new Chart(compEl, {
-    type: "bar",
-    data: {
-      labels: last7L,
-      datasets: [{
-        label: "Completed",
-        data: last7,
-        backgroundColor: last7.map((_,i) => i===6 ? accent : accent+"44"),
-        borderRadius: 8,
-        borderSkipped: false
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { ticks: { color: textColor, font: { size: 11 } }, grid: { display: false }, border: { color: axisColor } },
-        y: { beginAtZero: true, ticks: { color: textColor, stepSize: 1, font: { size: 11 } }, grid: { color: gridColor }, border: { color: axisColor } }
-      }
-    }
-  });
-
-  // Priority doughnut
+  // Completions bar via Chart.js (optional canvas backup — we use custom bars above)
+  // Priority doughnut kept for future use
   const priEl = destroyOld("dashPriChart");
-  const nzP = pCounts.map((c,i) => ({c,l:pLabels[i],col:pColors[i]})).filter(x => x.c > 0);
-  if (priEl) new Chart(priEl, {
-    type: "doughnut",
-    data: {
-      labels: nzP.map(x=>x.l),
-      datasets: [{ data: nzP.map(x=>x.c), backgroundColor: nzP.map(x=>x.col), borderWidth: 2, borderColor: dark?"#1c2740":"#fff", hoverOffset: 10 }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      cutout: "68%",
-      plugins: { legend: { position: "right", labels: { color: textColor, boxWidth: 11, padding: 10, font: { size: 11 } } } }
-    }
-  });
-
-  // Task types bar (compact)
-  const typeEl = destroyOld("dashTypeChart");
-  if (typeEl) new Chart(typeEl, {
-    type: "bar",
-    data: {
-      labels: ["Daily","Weekly","Monthly","Yearly","Custom"],
-      datasets: [{ data: typeCounts,
-        backgroundColor: [accent+"cc", accent2+"cc", "#7800ff99", "#f9731699", "#ec489999"],
-        borderRadius: 6, borderSkipped: false
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      indexAxis: "y",
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { beginAtZero: true, ticks: { color: textColor, stepSize: 1, font: { size: 10 } }, grid: { color: gridColor }, border: { color: axisColor } },
-        y: { ticks: { color: textColor, font: { size: 11 } }, grid: { display: false }, border: { color: axisColor } }
-      }
-    }
-  });
+  const nzP = pCounts.map((c,i)=>({c,l:pLabels[i+1],col:pColors[i+1]})).filter(x=>x.c>0);
+  if (priEl && window.Chart && nzP.length) {
+    new Chart(priEl, {
+      type:"doughnut",
+      data:{ labels:nzP.map(x=>x.l), datasets:[{data:nzP.map(x=>x.c),backgroundColor:nzP.map(x=>x.col),borderWidth:2,borderColor:dark?"#1c2740":"#fff",hoverOffset:8}]},
+      options:{ responsive:true, maintainAspectRatio:false, cutout:"68%", plugins:{legend:{position:"right",labels:{color:textColor,boxWidth:10,padding:8,font:{size:10}}}}  }
+    });
+  }
 }
