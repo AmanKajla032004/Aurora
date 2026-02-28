@@ -58,6 +58,16 @@ export async function updateTaskInCloud(taskId, updates) {
   await updateDoc(ref, { ...updates, updatedAt: serverTimestamp() });
 }
 
+export async function completeTaskInCloud(taskId, completed = true) {
+  const user = await waitForUser();
+  const ref = doc(db, "users", user.uid, "tasks", taskId);
+  await updateDoc(ref, {
+    completed,
+    completedAt: completed ? serverTimestamp() : null,
+    updatedAt: serverTimestamp()
+  });
+}
+
 export async function deleteTaskFromCloud(taskId) {
   const user = await waitForUser();
   const ref = doc(db, "users", user.uid, "tasks", taskId);
