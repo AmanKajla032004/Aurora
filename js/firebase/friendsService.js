@@ -38,48 +38,67 @@ export async function getMyProfile() {
   return snap.exists() ? { uid: user.uid, ...snap.data() } : null;
 }
 
-export async function findUserByUsername(username) {
-  const raw   = username.trim().replace(/^@/, "");
-  const uname = raw.toLowerCase();
-  // Sanitized version: what setPublicProfile stores as defaultUsername
-  const sanitized = uname.replace(/[^a-z0-9_]/g, "");
+// ── Core user lookup ──────────────────────────────────────────
+// Accepts either a username or an email address.
+// Fires all relevant Firestore queries in parallel so a single
+// slow or missing field never blocks the others.
+// Returns the first matching user doc, or null.
+export async function findUser(input) {
+  const raw       = (input || "").trim();
+  const lower     = raw.toLowerCase();
+  const noAt      = lower.replace(/^@/, "");
+  // "sanitized" = what setPublicProfile derives from an email prefix
+  const sanitized = noAt.replace(/[^a-z0-9_]/g, "");
 
-  // 1. Exact username match
-  const q1 = query(collection(db, "users"), where("username", "==", uname));
-  const snap1 = await getDocs(q1);
-  if (!snap1.empty) return { uid: snap1.docs[0].id, ...snap1.docs[0].data() };
+  // Build every query that could match this input
+  const queries = [];
 
-  // 2. Sanitized username match (handles dots/dashes in input)
-  if (sanitized && sanitized !== uname) {
-    const q2 = query(collection(db, "users"), where("username", "==", sanitized));
-    const snap2 = await getDocs(q2);
-    if (!snap2.empty) return { uid: snap2.docs[0].id, ...snap2.docs[0].data() };
+  if (lower.includes("@")) {
+    // Looks like an email — prioritise email field variants
+    queries.push(
+      getDocs(query(collection(db, "users"), where("publicEmail", "==", lower))),
+      getDocs(query(collection(db, "users"), where("email",       "==", lower))),
+      // Also try as username in case they stored their email as username
+      getDocs(query(collection(db, "users"), where("username",    "==", lower))),
+    );
+  } else {
+    // Looks like a username — try username field variants + email prefix match
+    queries.push(
+      getDocs(query(collection(db, "users"), where("username",    "==", noAt))),
+      getDocs(query(collection(db, "users"), where("displayName", "==", noAt))),
+    );
+    if (sanitized && sanitized !== noAt) {
+      // e.g. input "john.doe" → sanitized "johndoe"
+      queries.push(
+        getDocs(query(collection(db, "users"), where("username",    "==", sanitized))),
+        getDocs(query(collection(db, "users"), where("displayName", "==", sanitized))),
+      );
+    }
   }
 
-  // 3. displayName match (older profiles without username field)
-  const q3 = query(collection(db, "users"), where("displayName", "==", uname));
-  const snap3 = await getDocs(q3);
-  if (!snap3.empty) return { uid: snap3.docs[0].id, ...snap3.docs[0].data() };
-
+  // Run all queries in parallel; take the first non-empty result
+  const results = await Promise.allSettled(queries);
+  for (const r of results) {
+    if (r.status === "fulfilled" && !r.value.empty) {
+      const d = r.value.docs[0];
+      return { uid: d.id, ...d.data() };
+    }
+  }
   return null;
 }
 
+// Thin wrappers kept for call-site compatibility
+export async function findUserByUsername(username) {
+  return findUser(username);
+}
+
 export async function findUserByEmail(email) {
-  const addr = email.trim().toLowerCase();
-  // Try publicEmail field (how it's stored)
-  const q1 = query(collection(db, "users"), where("publicEmail", "==", addr));
-  const snap1 = await getDocs(q1);
-  if (!snap1.empty) return { uid: snap1.docs[0].id, ...snap1.docs[0].data() };
-  // Fallback: email field (some early docs may use "email" not "publicEmail")
-  const q2 = query(collection(db, "users"), where("email", "==", addr));
-  const snap2 = await getDocs(q2);
-  if (!snap2.empty) return { uid: snap2.docs[0].id, ...snap2.docs[0].data() };
-  return null;
+  return findUser(email);
 }
 
 // For username login: look up the real email from a username
 export async function lookupEmailByUsername(username) {
-  const found = await findUserByUsername(username);
+  const found = await findUser(username);
   if (!found) return null;
   return found.publicEmail || found.email || null;
 }

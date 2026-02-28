@@ -1,5 +1,5 @@
 import {
-  setPublicProfile, ensurePublicProfile, getMyProfile, findUserByEmail, findUserByUsername, sendFriendRequest,
+  setPublicProfile, ensurePublicProfile, getMyProfile, findUser, sendFriendRequest,
   getIncomingRequests, acceptRequest, declineRequest,
   getFriends, removeFriend, getFriendTasks, uploadProfilePhoto
 } from "../firebase/friendsService.js";
@@ -130,7 +130,7 @@ export async function initFriends() {
 
     try {
       // Check if taken
-      const existing = await findUserByUsername(raw);
+      const existing = await findUser(raw);
       if (existing && existing.uid !== auth.currentUser?.uid) {
         showUsernameMsg("Username taken — try another", "error");
         btn.disabled = false; btn.textContent = "Save";
@@ -195,21 +195,8 @@ async function doAddFriend() {
     let found     = null;
     const cleaned = raw.replace(/^@/, "").toLowerCase();
 
-    // Always try both username and email lookup regardless of tab selected.
-    // This handles: typing email in username tab, typing username prefix in email tab, etc.
-    if (cleaned.includes("@")) {
-      // Looks like an email address — try email first, then username
-      if (cleaned === me?.email?.toLowerCase()) throw new Error("That's your own account!");
-      found = await findUserByEmail(cleaned);
-      if (!found) found = await findUserByUsername(cleaned.split("@")[0]);
-    } else {
-      // Looks like a username — try username first, then email prefix
-      if (cleaned === myProfile?.username?.toLowerCase()) throw new Error("That's your own username!");
-      if (!cleaned) throw new Error("Enter a username or email address.");
-      found = await findUserByUsername(cleaned);
-      // If not found by username, maybe they typed the email prefix (e.g. "john" for "john@gmail.com")
-      // We can't search partial emails in Firestore, so we stop here
-    }
+    if (!cleaned) throw new Error("Enter a username or email address.");
+    found = await findUser(cleaned);
     if (!found) {
       throw new Error(
         cleaned.includes("@")
