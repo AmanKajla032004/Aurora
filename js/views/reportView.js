@@ -89,8 +89,8 @@ export async function initReport() {
   const cached = getCachedReport(activePeriod);
   if (cached) showCachedReport(cached);
 
-  // Schedule end-of-period auto reports
-  scheduleAutoReports(); // async — runs in background, doesn't block UI
+  // Schedule controlled auto-reports (no backfill, no burst)
+  scheduleNextAutoReport();
 }
 
 // ─── Stats (instant, no AI) ───────────────────────────────────
@@ -124,7 +124,7 @@ async function generateStats() {
   if (btn) { btn.disabled = false; btn.textContent = "📊 Refresh"; }
 }
 
-// ─── AI narrative (separate, on-demand) ──────────────────────
+// ─── AI narrative (separate, on-demand — manual button) ──────
 async function generateAI() {
   const btn = document.getElementById("reportAiBtn");
   const container = document.getElementById("reportContent");
@@ -190,7 +190,7 @@ async function generateAI() {
       body.style.opacity = "1";
       body.style.fontStyle = "normal";
       const formatted = aiText.replace(
-        /^(WINS|WATCH OUT|NEXT STEPS|STRENGTHS|WEAKNESSES|OPPORTUNITIES|THREATS)\s*$/gm,
+        /^(WINS|WATCH OUT|NEXT STEPS|STRENGTHS|WEAKNESSES|OPPORTUNITIES|THREATS|ACTION PLAN|TODAY'S WINS|BLOCKERS|MOMENTUM|TOMORROW'S FOCUS|WEEKLY PATTERN|CONSISTENCY|WHAT CHANGED|NEXT WEEK STRATEGY|MONTH OVERVIEW|TREND|GROWTH AREAS|BURNOUT RISK|NEXT MONTH PLAN)\s*$/gm,
         '<strong style="color:var(--accent);font-size:12px;letter-spacing:1.5px;text-transform:uppercase;display:block;margin:14px 0 5px">$1</strong>'
       );
       body.innerHTML = formatted;
@@ -347,183 +347,334 @@ function buildStats(tasks, refDate) {
 function buildPrompt(meta) {
   const { completedInPeriod=[], overdue=[], pending=[], highPri=[], streak=0, rate=0, tasks=[], periodLabel="today" } = meta;
   const tLabel = t => t.title + (t.description ? " — " + t.description : "");
-
-  if (activePeriod === "swot") {
-    return "Write a productivity SWOT based on this task data. Plain text, no markdown, no bullet dashes.\n\n"
-      + "Data: " + tasks.length + " total, " + tasks.filter(t=>t.completed).length + " completed (" + rate + "%), " + overdue.length + " overdue, " + streak + "-day streak.\n"
-      + "Completed: " + (completedInPeriod.slice(0,5).map(tLabel).join("; ")||"none") + ".\n"
-      + "Overdue: " + (overdue.slice(0,3).map(tLabel).join("; ")||"none") + ".\n\n"
-      + "Write 4 sections, label each clearly, 2-3 sentences each. Be specific to the actual tasks listed:\nSTRENGTHS\nWEAKNESSES\nOPPORTUNITIES\nTHREATS";
-  }
-
-  const periodName = activePeriod === "day" ? "end-of-day" : activePeriod === "week" ? "weekly" : "monthly";
   const wb = meta?.wellbeing;
-  const wbLine = wb
-    ? "\nWellbeing this week: mood " + wb.avgMood + "/7, energy " + wb.avgEnergy + "/6, stress " + wb.avgStress + "/5, sleep " + wb.avgSleep + "h avg."
-    : "";
-  const dailyNote = activePeriod === "day"
-    ? "\nNote: daily/once tasks count for today. Weekly/monthly/yearly tasks are ongoing — credit progress made, not failure to finish."
-    : "";
-  const pendingCount = activePeriod === "day"
-    ? pending.filter(t => t.type === "daily" || t.type === "once").length
-    : pending.length;
 
-  return "Write a " + periodName + " productivity report. Plain text, no markdown, no dashes." + dailyNote + wbLine + "\n\n"
-    + periodLabel + ": " + completedInPeriod.length + " task(s) completed" + (completedInPeriod.length ? ": " + completedInPeriod.slice(0,5).map(tLabel).join("; ") : "") + ".\n"
-    + "Pending: " + pendingCount + ". Overdue: " + overdue.length + (overdue.length ? ": " + overdue.slice(0,3).map(tLabel).join("; ") : "") + ". Streak: " + streak + " days. Rate: " + rate + "%.\n"
-    + "High priority remaining: " + (highPri.slice(0,3).map(tLabel).join("; ")||"none") + ".\n\n"
-    + "Write exactly 3 sections, each 2-3 sentences. Reference the actual tasks above — be specific, not generic:\nWINS\nWATCH OUT\nNEXT STEPS";
-}
+  // ── Shared data snapshot (structured JSON for Gemini) ──
+  const dataBlock = JSON.stringify({
+    period:        activePeriod,
+    totalTasks:    tasks.length,
+    completedAll:  tasks.filter(t => t.completed).length,
+    completedNow:  completedInPeriod.length,
+    completedList: completedInPeriod.slice(0, 6).map(tLabel),
+    pendingCount:  pending.length,
+    overdueCount:  overdue.length,
+    overdueList:   overdue.slice(0, 4).map(tLabel),
+    highPriority:  highPri.slice(0, 4).map(tLabel),
+    completionRate: rate,
+    streak:        streak,
+    wellbeing:     wb ? {
+      mood: wb.avgMood, energy: wb.avgEnergy,
+      stress: wb.avgStress, sleep: wb.avgSleep, water: wb.avgWater
+    } : null
+  }, null, 0);
 
-// ─── Auto end-of-period reports ───────────────────────────────
-// Strategy: check on every page load if a report was missed since last visit.
-// Also schedule timers for current session if the app stays open.
-// ─── Helper: local date key "YYYYMMDD" ───────────────────────
-function dateKey(d) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth()+1).padStart(2,"0");
-  const day = String(d.getDate()).padStart(2,"0");
-  return `${y}${m}${day}`;
-}
+  // ─────────────────────────────────────────────────────────────
+  // DAILY — "Daily reflection coach"
+  // Tone: warm, direct, brief. Like a coach debriefing after practice.
+  // Focus: only today. No big-picture analysis. Quick and tactical.
+  // ─────────────────────────────────────────────────────────────
+  if (activePeriod === "day") {
+    return `You are a daily reflection coach — warm, sharp, and brief. You debrief someone on their day the way a coach talks to an athlete after practice: honest, specific, no fluff.
 
-// ─── Save a report for a specific date ───────────────────────
-function saveReportForDate(period, dateStr, htmlContent) {
-  try {
-    localStorage.setItem(`aurora_report_${period}_${dateStr}`,
-      JSON.stringify({ html: htmlContent, generatedAt: Date.now(), hasAI: true, isAuto: true }));
-  } catch(e) {}
-}
+RULES:
+- Plain text only. No markdown, no bullets, no dashes, no asterisks.
+- Talk ONLY about today. Do not analyze trends, patterns, or long-term arcs.
+- Daily and one-time tasks are what count today. Weekly/monthly/yearly goals are ongoing — give credit for progress, never frame them as failures.
+- Keep the entire response under 150 words. Be punchy.
+- Each section: 2 sentences max.
 
-// ─── Check if a report exists for a given date key ───────────
-function hasReportForDate(period, dateStr) {
-  try { return !!localStorage.getItem(`aurora_report_${period}_${dateStr}`); }
-  catch(e) { return false; }
-}
+HERE IS TODAY'S DATA:
+${dataBlock}
+${wb ? `\nBody signals: mood ${wb.avgMood}/7, energy ${wb.avgEnergy}/6, stress ${wb.avgStress}/5, sleep ${wb.avgSleep}h.` : ""}
 
-// ─── Generate a report for a past date ───────────────────────
-async function generateReportForDate(period, forDate, tasks) {
-  const savedPeriod = activePeriod;
-  activePeriod = period;
-  const { statsHtml, meta } = buildStats(tasks, forDate);
-  activePeriod = savedPeriod;
+Write exactly these 4 sections. Print each heading alone on its own line in ALL CAPS, then your sentences below it:
 
-  try {
-    const prompt = buildPrompt(meta);
-    const aiText = await askGemini(prompt, 600);
-    const aiSection = `<div class="report-ai-card">
-      <div class="report-ai-header">
-        <span class="report-ai-title-text">✦ ${period === "day" ? "Daily" : period === "week" ? "Weekly" : "Monthly"} Report — ${forDate.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</span>
-      </div>
-      <div class="report-ai-body">${formatAI(aiText)}</div>
-    </div>`;
-    saveReportForDate(period, dateKey(forDate), statsHtml + aiSection);
-  } catch(e) {
-    // Save stats-only on AI failure
-    saveReportForDate(period, dateKey(forDate), statsHtml);
+TODAY'S WINS
+Name what got done. If nothing, acknowledge showing up and note the streak.
+
+BLOCKERS
+What stalled or is overdue — name the tasks. If stress or fatigue contributed, say so plainly.
+
+MOMENTUM
+One sentence: is the streak alive, dying, or dead? State the number and what it means.
+
+TOMORROW'S FOCUS
+Pick ONE task from the overdue or high-priority list. Name it. Say why it is the move to make.`;
   }
+
+  // ─────────────────────────────────────────────────────────────
+  // WEEKLY — "Behavior pattern analyst"
+  // Tone: clinical, curious, pattern-obsessed. Like a sports analyst
+  //       breaking down game film. Compares, contrasts, spots habits.
+  // Focus: the 7-day window. Rhythms, consistency, shifts.
+  // ─────────────────────────────────────────────────────────────
+  if (activePeriod === "week") {
+    return `You are a behavior pattern analyst — clinical, curious, and obsessed with rhythms. You study someone's week the way a sports analyst breaks down game film: looking for patterns, streaks, drop-offs, and hidden signals in the data.
+
+RULES:
+- Plain text only. No markdown, no bullets, no dashes, no asterisks.
+- Analyze the 7-day window as a unit. Compare early-week vs late-week. Note which task types got attention and which were ignored.
+- Ground every claim in a number from the data. No vague praise or criticism.
+- Each section: 2-3 sentences.
+- Total response: roughly 200 words.
+
+THIS WEEK'S DATA:
+${dataBlock}
+${wb ? `\nBiometric context: avg mood ${wb.avgMood}/7, avg energy ${wb.avgEnergy}/6, avg stress ${wb.avgStress}/5, avg sleep ${wb.avgSleep}h, hydration ${wb.avgWater} glasses/day.` : ""}
+
+Write exactly these 4 sections. Print each heading alone on its own line in ALL CAPS:
+
+WEEKLY PATTERN
+Which task categories dominated? Were completions clustered or spread out? Did effort taper off or build through the week?
+
+CONSISTENCY
+Rate their reliability this week on a 1–10 scale and justify it. Reference the streak length, the completion rate, and whether overdue items grew or shrank.
+
+WHAT CHANGED
+Identify one concrete shift from the previous norm — a new habit forming, a priority rising, or a category slipping. Cite the numbers.
+
+NEXT WEEK STRATEGY
+Prescribe 2 specific behavioral adjustments. Name the exact tasks or categories to prioritize and one thing to stop doing or defer.${wb ? " If biometric data reveals a sleep or stress issue, tie one adjustment to that." : ""}`;
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // MONTHLY — "Strategic productivity advisor"
+  // Tone: executive, measured, forward-looking. Like a quarterly
+  //       business review — zoomed out, focused on trajectory.
+  // Focus: 30-day arc. Growth vs decline. Sustainability. Strategy.
+  // ─────────────────────────────────────────────────────────────
+  if (activePeriod === "month") {
+    return `You are a strategic productivity advisor — measured, executive-level, forward-looking. You conduct a monthly review the way a COO reviews a quarterly report: zoomed out, focused on trajectory and sustainability, not individual tasks.
+
+RULES:
+- Plain text only. No markdown, no bullets, no dashes, no asterisks.
+- Think in arcs, not events. Is output growing, plateauing, or declining? Is the system sustainable?
+- When citing tasks, treat them as evidence of broader themes, not standalone items.
+- Each section: 2-3 sentences.
+- Total response: roughly 250 words.
+
+THIS MONTH'S DATA:
+${dataBlock}
+${wb ? `\nWellbeing trend (7-day avg): mood ${wb.avgMood}/7, energy ${wb.avgEnergy}/6, stress ${wb.avgStress}/5, sleep ${wb.avgSleep}h, water ${wb.avgWater} glasses. Use this to assess sustainability.` : ""}
+
+Write exactly these 5 sections. Print each heading alone on its own line in ALL CAPS:
+
+MONTH OVERVIEW
+Characterize the month in one sentence. Then state the core numbers: total completed, completion rate, overdue count. Was this a month of building, maintaining, or sliding?
+
+TREND
+Is productivity on an upward, flat, or downward trajectory? Compare the completion rate and overdue count against what a healthy baseline looks like. Be honest about direction.
+
+GROWTH AREAS
+Where did real capability expand? Name specific task categories or goals where follow-through was strong. Cite completion numbers as evidence.
+
+BURNOUT RISK
+Evaluate sustainability on a Low / Moderate / High / Critical scale.${wb ? " Stress at " + wb.avgStress + "/5 and sleep at " + wb.avgSleep + "h are key inputs." : ""} Factor in overdue accumulation and whether the current pace can continue for another month without breaking.
+
+NEXT MONTH PLAN
+One strategic recommendation. Should they narrow scope, attack a backlog, invest in a habit, or change their system? Name a specific measurable target for the next 30 days.`;
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // SWOT — "Performance evaluator"
+  // Tone: structured, clinical, categorical. Like a management
+  //       consultant filling in a 2x2 matrix — no narrative, just
+  //       classified findings and prescribed actions.
+  // Focus: sort every signal into exactly one quadrant. Then act.
+  // ─────────────────────────────────────────────────────────────
+  if (activePeriod === "swot") {
+    return `You are a performance evaluator conducting a structured SWOT assessment. You think in quadrants, not narratives. Your job is to classify every meaningful signal from the data into exactly one of four categories, then prescribe actions.
+
+RULES:
+- Plain text only. No markdown, no bullets, no dashes, no asterisks.
+- STRICT categorical output. Every finding belongs in one quadrant — do not repeat a finding across sections.
+- Internal factors (Strengths, Weaknesses) = things within the person's control: habits, completion rates, priorities, consistency.
+- External factors (Opportunities, Threats) = conditions or timing that could help or hurt: deadlines approaching, workload trends, wellbeing trajectory, streak momentum.
+- Be forensic. Name specific tasks, cite exact numbers. No vague observations.
+- Each quadrant: exactly 2-3 findings, each one sentence.
+
+PERFORMANCE DATA:
+${dataBlock}
+${wb ? `\nWellbeing indicators: mood ${wb.avgMood}/7, energy ${wb.avgEnergy}/6, stress ${wb.avgStress}/5, sleep ${wb.avgSleep}h, water ${wb.avgWater} glasses.` : ""}
+
+Write exactly these 5 sections. Print each heading alone on its own line in ALL CAPS:
+
+STRENGTHS
+Internal positives. What habits, completion patterns, or priorities show discipline? Cite the data.
+
+WEAKNESSES
+Internal negatives. What is being neglected, deprioritized, or consistently left undone? Name the tasks and numbers.
+
+OPPORTUNITIES
+External tailwinds. What timing, momentum, or conditions make this a good moment to push forward? Reference streak state, upcoming deadlines, or energy levels.
+
+THREATS
+External headwinds. What could derail progress in the next period — overdue snowball, stress trajectory, overcommitment? Quantify the risk.
+
+ACTION PLAN
+Exactly 3 numbered directives. Each must name a specific task or metric and state a concrete action to take within 7 days. Format: "1. [action]" — one sentence each.`;
+  }
+
+  // ── FALLBACK (should not normally hit) ────────────────────────
+  return "Write a productivity report based on this data. Plain text, no markdown.\n\n"
+    + "DATA:\n" + dataBlock + "\n\n"
+    + "Write 3 sections (WINS, WATCH OUT, NEXT STEPS), each 2-3 sentences. Be specific to the actual tasks listed.";
 }
 
-// ─── Main: check on every app open if any reports are missing ─
-export async function checkAndGenerateMissedReports() { return scheduleAutoReports(); }
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ─── CONTROLLED AUTO-REPORT SCHEDULER ─────────────────────────
+// Replaces the old backfill-based scheduleAutoReports().
+//
+// Rules:
+//   • NO backfill loops — never generates reports for missed days
+//   • NO AI calls on page load — only schedules a timer
+//   • ONE AI call per scheduled period (daily / weekly / monthly / yearly)
+//   • localStorage flags prevent duplicate generation across reloads
+//   • Manual "Ask AI" button is completely unaffected
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-async function scheduleAutoReports() {
+// Flag key builders — each period gets exactly one flag per natural period
+function aiDailyKey(d)   { return `aurora_ai_daily_${dateKey(d)}`; }
+function aiWeeklyKey(d)  {
+  // ISO week number for the key: YYYYWWW
+  const jan1 = new Date(d.getFullYear(), 0, 1);
+  const days = Math.floor((d - jan1) / 86400000);
+  const week = String(Math.ceil((days + jan1.getDay() + 1) / 7)).padStart(2, "0");
+  return `aurora_ai_weekly_${d.getFullYear()}W${week}`;
+}
+function aiMonthlyKey(d) {
+  return `aurora_ai_monthly_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}`;
+}
+function aiYearlyKey(d)  { return `aurora_ai_yearly_${d.getFullYear()}`; }
+
+function hasAIFlag(key)  { try { return localStorage.getItem(key) === "1"; } catch { return false; } }
+function setAIFlag(key)  { try { localStorage.setItem(key, "1"); } catch {} }
+
+// Active timer ID so we don't stack timers on re-init
+let _autoTimerId = null;
+
+/**
+ * scheduleNextAutoReport()
+ * Called once on app load (from initReport). Sets a single setTimeout
+ * for the next midnight (00:00:00 local). When that fires it:
+ *   1. Generates the daily AI report (if flag not set)
+ *   2. If Sunday → also generates weekly report
+ *   3. If last day of month → also generates monthly report
+ *   4. If Dec 31 → also generates yearly report
+ *   5. Reschedules itself for the NEXT midnight
+ */
+function scheduleNextAutoReport() {
+  // Clear any existing timer to prevent stacking
+  if (_autoTimerId !== null) {
+    clearTimeout(_autoTimerId);
+    _autoTimerId = null;
+  }
+
   const now = new Date();
-  const lastVisitMs = parseInt(localStorage.getItem("aurora_last_visit") || "0");
-  localStorage.setItem("aurora_last_visit", now.getTime().toString());
+  const nextMidnight = new Date(now);
+  nextMidnight.setDate(now.getDate() + 1);
+  nextMidnight.setHours(0, 0, 0, 0);
 
-  // No previous visit — nothing to backfill
-  if (!lastVisitMs) return;
+  const msUntilMidnight = nextMidnight.getTime() - now.getTime();
 
-  const last = new Date(lastVisitMs);
+  _autoTimerId = setTimeout(async () => {
+    _autoTimerId = null;
+    // Enable auto-AI flag, run reports, then disable
+    window.__autoAIAllowed = true;
+    try {
+      await runScheduledReports();
+    } finally {
+      window.__autoAIAllowed = false;
+    }
+    // Reschedule for the next midnight
+    scheduleNextAutoReport();
+  }, msUntilMidnight);
+}
 
-  // Don't check if last visit was today (nothing to backfill yet)
-  if (dateKey(last) === dateKey(now)) {
-    // But still schedule end-of-day timer for tonight
-    scheduleTimer(now);
-    return;
+/**
+ * runScheduledReports()
+ * Executes at midnight. Checks which periods need a report and generates
+ * exactly ONE AI call per qualifying period. Uses localStorage flags to
+ * guarantee idempotency — if the app reloads and the timer re-fires for
+ * the same period, no duplicate call is made.
+ */
+async function runScheduledReports() {
+  const now = new Date();
+
+  // The report covers the day that just ended (yesterday at 11:59 PM)
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  yesterday.setHours(23, 59, 0, 0);
+
+  // ── Daily: always at midnight ──
+  if (!hasAIFlag(aiDailyKey(yesterday))) {
+    await generateAutoAIReport("day", yesterday);
+    setAIFlag(aiDailyKey(yesterday));
   }
 
-  // Fetch tasks once — reuse for all report generation
+  // ── Weekly: if yesterday was Sunday (end of week) ──
+  if (yesterday.getDay() === 0 && !hasAIFlag(aiWeeklyKey(yesterday))) {
+    await generateAutoAIReport("week", yesterday);
+    setAIFlag(aiWeeklyKey(yesterday));
+  }
+
+  // ── Monthly: if yesterday was last day of its month ──
+  const nextDayOfYesterday = new Date(yesterday);
+  nextDayOfYesterday.setDate(yesterday.getDate() + 1);
+  if (nextDayOfYesterday.getMonth() !== yesterday.getMonth()) {
+    if (!hasAIFlag(aiMonthlyKey(yesterday))) {
+      await generateAutoAIReport("month", yesterday);
+      setAIFlag(aiMonthlyKey(yesterday));
+    }
+  }
+
+  // ── Yearly: if yesterday was Dec 31 ──
+  if (yesterday.getMonth() === 11 && yesterday.getDate() === 31) {
+    if (!hasAIFlag(aiYearlyKey(yesterday))) {
+      await generateAutoAIReport("year", yesterday);
+      setAIFlag(aiYearlyKey(yesterday));
+    }
+  }
+}
+
+/**
+ * generateAutoAIReport(period, forDate)
+ * Fetches tasks, builds stats for the given period/date, calls askGemini
+ * ONCE, and stores the result. This is the ONLY function that makes an
+ * AI call during auto-generation.
+ */
+async function generateAutoAIReport(period, forDate) {
+  // Guard: only allow auto AI calls when explicitly enabled by the scheduler
+  if (!window.__autoAIAllowed) return;
+
   let tasks = [];
   try { tasks = await getTasksFromCloud(); } catch(e) { return; }
 
-  // ── Daily: generate for every missed day between last visit and today ──
-  const dayMs = 86400000;
-  let cursor = new Date(last);
-  cursor.setHours(23, 59, 0, 0); // end of that day
-  while (cursor < now) {
-    const dk = dateKey(cursor);
-    if (dk !== dateKey(now) && !hasReportForDate("day", dk)) {
-      await generateReportForDate("day", new Date(cursor), tasks);
-    }
-    cursor = new Date(cursor.getTime() + dayMs);
-  }
+  const wellbeing = await getWellbeingForReport(7).catch(() => null);
 
-  // ── Weekly: generate if we crossed a week boundary ──
-  const lastWeekStart = new Date(last); lastWeekStart.setDate(last.getDate() - last.getDay());
-  const nowWeekStart  = new Date(now);  nowWeekStart.setDate(now.getDate() - now.getDay());
-  if (lastWeekStart.getTime() < nowWeekStart.getTime()) {
-    const endOfLastWeek = new Date(nowWeekStart.getTime() - 1); // last millisecond of prev week
-    const dk = dateKey(endOfLastWeek);
-    if (!hasReportForDate("week", dk)) {
-      await generateReportForDate("week", endOfLastWeek, tasks);
-    }
-  }
+  // Temporarily set activePeriod for buildStats/buildPrompt
+  const savedPeriod = activePeriod;
+  activePeriod = period === "year" ? "month" : period; // yearly uses month-scope stats
+  const { statsHtml, meta } = buildStats(tasks, forDate);
+  meta.wellbeing = wellbeing;
 
-  // ── Monthly: generate if we crossed a month boundary ──
-  if (last.getMonth() !== now.getMonth() || last.getFullYear() !== now.getFullYear()) {
-    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
-    const dk = dateKey(endOfLastMonth);
-    if (!hasReportForDate("month", dk)) {
-      await generateReportForDate("month", endOfLastMonth, tasks);
-    }
-  }
-
-  // Schedule tonight's timer for current session
-  scheduleTimer(now);
-}
-
-// ─── Schedule end-of-day timer (only works if tab stays open) ─
-function scheduleTimer(now) {
-  const eod = new Date(now); eod.setHours(23, 59, 0, 0);
-  if (eod > now) {
-    setTimeout(async () => {
-      let tasks = [];
-      try { tasks = await getTasksFromCloud(); } catch(e) { return; }
-      const today = new Date();
-      if (!hasReportForDate("day", dateKey(today))) {
-        await generateReportForDate("day", today, tasks);
-      }
-    }, eod - now);
-  }
-}
-
-async function runAutoReport(period) {
-  // Only run if not already cached today
-  const cached = getCachedReport(period);
-  if (cached && cached.hasAI) return;
-
-  const prev = activePeriod;
-  activePeriod = period;
-
-  let tasks = [];
-  try { tasks = await getTasksFromCloud(); } catch(e) { activePeriod = prev; return; }
-
-  const { statsHtml, meta } = buildStats(tasks);
-  window._reportMeta = meta;
   const prompt = buildPrompt(meta);
+  activePeriod = savedPeriod; // restore immediately
 
   try {
     const aiText = await askGemini(prompt, 800);
-    const aiSection = `<div class="report-ai-card" id="reportAiCard">
-      <div class="report-ai-header"><span class="report-ai-title-text">✦ AI Insights — Auto Generated</span></div>
-      <div class="report-ai-body" id="reportAiBody">${formatAI(aiText)}</div>
+    const periodLabels = { day:"Daily", week:"Weekly", month:"Monthly", year:"Yearly" };
+    const aiSection = `<div class="report-ai-card">
+      <div class="report-ai-header">
+        <span class="report-ai-title-text">✦ ${periodLabels[period] || period} Report — ${forDate.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</span>
+      </div>
+      <div class="report-ai-body">${formatAI(aiText)}</div>
     </div>`;
     const fullHtml = statsHtml + aiSection;
-    setCachedReport(period, { html: fullHtml, generatedAt: Date.now(), hasAI: true, isAuto: true });
+    saveReportForDate(period === "year" ? "month" : period, dateKey(forDate), fullHtml, true);
 
-    // If user is on this tab, show it
-    if (activePeriod === period) {
+    // If user is currently viewing this tab, update the UI
+    if (activePeriod === period || (period === "year" && activePeriod === "month")) {
       const container = document.getElementById("reportContent");
       if (container) {
         container.innerHTML = fullHtml;
@@ -536,17 +687,44 @@ async function runAutoReport(period) {
       }
     }
   } catch(e) {
-    // Silent fail for auto — stats already cached
-    setCachedReport(period, { html: statsHtml, generatedAt: Date.now(), hasAI: false });
+    // On AI failure, save stats-only — no retry to avoid extra API calls
+    saveReportForDate(period === "year" ? "month" : period, dateKey(forDate), statsHtml, false);
   }
-  activePeriod = prev;
+}
+
+// Legacy export — now a no-op; the old backfill logic is removed
+export async function checkAndGenerateMissedReports() {
+  // Intentionally empty — auto reports are handled by scheduleNextAutoReport()
+  // which is called from initReport(). No backfill, no burst generation.
 }
 
 function formatAI(text) {
   return text.replace(
-    /^(WINS|WATCH OUT|NEXT STEPS|STRENGTHS|WEAKNESSES|OPPORTUNITIES|THREATS)\s*$/gm,
+    /^(WINS|WATCH OUT|NEXT STEPS|STRENGTHS|WEAKNESSES|OPPORTUNITIES|THREATS|ACTION PLAN|TODAY'S WINS|BLOCKERS|MOMENTUM|TOMORROW'S FOCUS|WEEKLY PATTERN|CONSISTENCY|WHAT CHANGED|NEXT WEEK STRATEGY|MONTH OVERVIEW|TREND|GROWTH AREAS|BURNOUT RISK|NEXT MONTH PLAN)\s*$/gm,
     '<strong style="color:var(--accent);font-size:12px;letter-spacing:1.5px;text-transform:uppercase;display:block;margin:14px 0 5px">$1</strong>'
   );
+}
+
+// ─── Helper: local date key "YYYYMMDD" ───────────────────────
+function dateKey(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,"0");
+  const day = String(d.getDate()).padStart(2,"0");
+  return `${y}${m}${day}`;
+}
+
+// ─── Save a report for a specific date ───────────────────────
+function saveReportForDate(period, dateStr, htmlContent, hasAI) {
+  try {
+    localStorage.setItem(`aurora_report_${period}_${dateStr}`,
+      JSON.stringify({ html: htmlContent, generatedAt: Date.now(), hasAI: !!hasAI, isAuto: true }));
+  } catch(e) {}
+}
+
+// ─── Check if a report exists for a given date key ───────────
+function hasReportForDate(period, dateStr) {
+  try { return !!localStorage.getItem(`aurora_report_${period}_${dateStr}`); }
+  catch(e) { return false; }
 }
 
 // ─── Cache helpers ────────────────────────────────────────────
