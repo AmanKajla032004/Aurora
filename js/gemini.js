@@ -156,3 +156,99 @@ export async function askGemini(prompt, maxTokens = 900) {
 
   throw new Error("All Gemini models failed.");
 }
+
+// ── Line-list helper (replaces JSON arrays — far cheaper) ──────
+// Ask AI to return a simple numbered or bulleted list.
+// Returns a plain JS array of strings. One API call, no retry.
+export async function askGeminiList(prompt, maxTokens = 400) {
+  const raw = await askGemini(
+    prompt + "\n\nFormat: output ONLY a plain numbered list, one item per line, no extra text. Example:\n1. First item\n2. Second item",
+    maxTokens
+  );
+  return raw
+    .split("\n")
+    .map(l => l.replace(/^[\d]+[.)\s]+/, "").replace(/^[-*•]\s*/, "").trim())
+    .filter(l => l.length > 2 && l.length < 300);
+}
+
+// ── Structured text helper (replaces JSON objects) ──────────────
+// For SWOT-style objects. Ask AI to use SECTION: lines format.
+// Returns a plain JS object. One API call, no retry.
+export async function askGeminiStructured(prompt, sections, maxTokens = 500) {
+  const sectionList = sections.join(", ");
+  const example = sections.map(s => `${s.toUpperCase()}:\n- item one\n- item two`).join("\n");
+  const raw = await askGemini(
+    prompt + "\n\nFormat: output ONLY plain text using these exact section headings, nothing else:\n" + example + "\n\nUse exactly these section names: " + sectionList,
+    maxTokens
+  );
+
+  const result = {};
+  sections.forEach(s => { result[s] = []; });
+
+  let currentSection = null;
+  for (const line of raw.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    // Check if this line is a section header
+    const matchedSection = sections.find(s =>
+      trimmed.toLowerCase().startsWith(s.toLowerCase() + ":") ||
+      trimmed.toLowerCase() === s.toLowerCase()
+    );
+    if (matchedSection) { currentSection = matchedSection; continue; }
+    // It's a content line
+    if (currentSection) {
+      const item = trimmed.replace(/^[-*•\d.)]\s*/, "").trim();
+      if (item.length > 2) result[currentSection].push(item);
+    }
+  }
+  return result;
+}
+
+// ── JSON helper (kept for backward compat, now uses one call) ──
+export async function askGeminiJSON(prompt, maxTokens = 600) {
+  const raw = await askGemini(
+    prompt + "\n\nOutput ONLY valid JSON starting with { or [. No markdown.",
+    maxTokens
+  );
+  // Strip any markdown fences
+  let s = raw.trim().replace(/^```(?:json)?\s*/gm, "").replace(/^```\s*$/gm, "").trim();
+  const start = s.search(/[\[{]/);
+  if (start > 0) s = s.slice(start);
+  const end = Math.max(s.lastIndexOf("}"), s.lastIndexOf("]"));
+  if (end >= 0 && end < s.length - 1) s = s.slice(0, end + 1);
+  try { return JSON.parse(s); } catch {}
+  const m = s.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+  if (m) try { return JSON.parse(m[1]); } catch {}
+  throw new Error("AI response could not be parsed — please try again.");
+}
+
+// ── Key status (for saveApiKey.html UI) ───────────────────────
+export function getKeyStatus() {
+  return {
+    total:     _keys.length,
+    active:    _keys.length - _exhausted.size,
+    exhausted: _exhausted.size,
+    currentIndex: _keyIndex
+  };
+}
+
+// ── Save keys to Firestore ─────────────────────────────────────
+export async function saveKeysToFirestore(keysArray) {
+  if (!Array.isArray(keysArray)) keysArray = [keysArray];
+  const validKeys = keysArray.map(k => k.trim()).filter(k => k.length > 10);
+  await setDoc(doc(db, "appConfig", "gemini"), {
+    keys: validKeys,
+    key:  validKeys[0] || "",  // legacy single-key field
+    updatedAt: new Date().toISOString(),
+    keyCount: validKeys.length
+  });
+  _keys = validKeys;
+  _exhausted.clear();
+  _keyIndex = 0;
+  _lastFetched = Date.now();
+}
+
+// Legacy single-key save (backward compat)
+export async function saveKeyToFirestore(newKey) {
+  await saveKeysToFirestore([newKey]);
+}
